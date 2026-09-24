@@ -2,15 +2,17 @@
 
 1. Out-of-time test: train on Jan 2025 – Mar 2026, score Apr – Jun 2026 against the
    reference labels (agent notes). Compared with the bot's intake tag on the same tickets.
-2. Hand audit: a random sample of tickets judged by reading both the message and the
+2. Unseen phrasings (robustness.py): whole phrasings held out, clean and with live-chat noise.
+   Step 1 is saturated on this templated data; this is the better guide to live messages.
+3. Hand audit: a random sample of tickets judged by reading both the message and the
    note (eval/audit_labels.csv). This checks the reference labels themselves, which
-   step 1 takes on trust.
+   steps 1 and 2 take on trust.
 """
 from pathlib import Path
 
 import pandas as pd
 
-from .classify import _text, build_model
+from .classify import LOW_CONFIDENCE, fit_model, predict
 from .taxonomy import OWNER
 
 AUDIT_FILE = Path("eval/audit_labels.csv")
@@ -20,8 +22,7 @@ SPLIT = pd.Timestamp("2026-04-01")
 def out_of_time(t):
     lab = t[t.ref_category.notna()]
     tr, te = lab[lab.created_at < SPLIT], lab[lab.created_at >= SPLIT].copy()
-    m = build_model().fit(_text(tr.customer_message), tr.ref_category)
-    te["pred"] = m.predict(_text(te.customer_message))
+    te["pred"], _ = predict(fit_model(tr), te.customer_message)
     # The bot never outputs "Order Changes"; its nearest equivalent is "Other"
     bot = te.category
     res = {
@@ -83,8 +84,20 @@ def write_report(t, path="out/evaluation.md"):
     lines += [f"### All {len(errors)} disagreements in the test period", "",
               errors.assign(customer_message=errors.customer_message.str.replace("\n", " ").str[:140]).to_markdown(index=False), ""]
 
+    from .robustness import current_model
+    r = current_model(t)
+    res["robustness"] = r
+    lines += ["## 2. Harder test: phrasings the model has never seen", "",
+              "The standard test above is near 100% because the same phrasings appear in training and test. Here whole",
+              f"phrasings are held out ({r['phrasings']} canonical phrasings, {r['tickets']:,} tickets, 5 folds), so every test",
+              "ticket words its problem in a way the model never saw. This is the better guide to live messages.", "",
+              f"- Unseen phrasings: **{r['unseen']:.1%}**",
+              f"- Unseen phrasings with live-chat noise (typos, dropped words, cut-off messages): **{r['noisy']:.1%}**",
+              f"- If the least certain tickets (margin < {LOW_CONFIDENCE}, {r['triage_share']:.0%} of them) go to a person first: "
+              f"**{r['confident_accuracy']:.1%}** on the rest", "",
+              "Model choice was made on this test; see experiments/model_search.py and docs/MODEL_IMPROVEMENT.md.", ""]
     a = audit(t)
-    lines += ["## 2. Hand audit of a random sample", ""]
+    lines += ["## 3. Hand audit of a random sample", ""]
     if a is None:
         lines += ["Not run: eval/audit_labels.csv missing."]
     else:

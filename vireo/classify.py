@@ -1,13 +1,20 @@
 """Categorise tickets from the customer's opening message only.
 
 The opening message is all the intake bot has when it routes a ticket, so it's the only fair
-input. The classifier learns from the reference labels (agent closing notes, see labels.py).
+input at prediction time. The classifier learns from the reference labels (agent closing notes, see labels.py).
 
 Two stages:
-1. Local model (default, free, offline): TF-IDF on words + character n-grams (the messages
-   are full of typos) -> logistic regression.
-2. Optional LLM second opinion (--llm): only tickets where the local model's confidence is
-   below a threshold go to a small open model running locally in Ollama. Free, offline, no key.
+1. Local model (default, free, offline): TF-IDF on words + character n-grams (the messages are
+   full of typos) -> linear SVM with balanced class weights. Training text = the customer
+   messages PLUS the same training tickets' agent notes, which describe the same issues in
+   support vocabulary ("refund not credited", "double charge", "RMA status"). That teaches the model
+   words it would otherwise only learn from phrasings it happens to have seen. Chosen on the
+   unseen-phrasing test in robustness.py: 80.5% -> 88.6% vs the first version (experiments/model_search.py).
+2. Optional LLM second opinion (--llm): only low-confidence tickets go to a small open model
+   running locally in Ollama. Free, offline, no key, but measured worse (docs/LLM_DECISION.md).
+
+Confidence is the margin between the top two category scores. On unseen phrasings, tickets with
+margin < LOW_CONFIDENCE are about the least certain 10%; the rest are ~93% right.
 """
 import json
 import os
@@ -17,13 +24,13 @@ import urllib.request
 import numpy as np
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedKFold
 from sklearn.pipeline import make_pipeline, make_union
+from sklearn.svm import LinearSVC
 
 from .taxonomy import CATEGORIES
 
-LOW_CONFIDENCE = 0.6
+LOW_CONFIDENCE = 0.2  # score margin; see module docstring
 
 
 def _text(s: pd.Series) -> pd.Series:
@@ -31,19 +38,41 @@ def _text(s: pd.Series) -> pd.Series:
     return s.str.replace(r"^\[IVR transcript\]\s*", "", regex=True)
 
 
+def note_text(notes: pd.Series) -> pd.Series:
+    """Agent notes as extra training text: drop SOP refs, status tags and agent signatures."""
+    n = notes.fillna("").str.lower()
+    n = n.str.replace(r"\(sop [\d.]+\)|\[closed\]|//\w+|~\w+|-[a-z]{2}\b", " ", regex=True)
+    return n.str.replace(r"\s+", " ", regex=True).str.strip()
+
+
 def build_model():
     features = make_union(
         TfidfVectorizer(ngram_range=(1, 2), min_df=2, sublinear_tf=True),
         TfidfVectorizer(analyzer="char_wb", ngram_range=(3, 5), min_df=3, sublinear_tf=True),
     )
-    return make_pipeline(features, LogisticRegression(C=5, max_iter=2000))
+    return make_pipeline(features, LinearSVC(C=0.5, class_weight="balanced"))
+
+
+def fit_model(train: pd.DataFrame):
+    """Train on labelled tickets' messages and their notes. Only ever pass training tickets."""
+    train = train[train.ref_category.notna()]
+    X = pd.concat([_text(train.customer_message), note_text(train.agent_notes)], ignore_index=True)
+    y = pd.concat([train.ref_category, train.ref_category], ignore_index=True)
+    return build_model().fit(X, y)
+
+
+def predict(model, messages: pd.Series):
+    """Return (category, confidence margin) for customer messages."""
+    scores = model.decision_function(_text(messages))
+    top2 = np.sort(scores, axis=1)[:, -2:]
+    return model.classes_[scores.argmax(1)], top2[:, 1] - top2[:, 0]
 
 
 def categorise(t: pd.DataFrame, folds=5, seed=0) -> pd.DataFrame:
     """Add ai_category and ai_confidence to every ticket.
 
-    Labelled tickets get out-of-fold predictions: the model that scores a ticket never
-    saw that ticket's label. Tickets without a reference label are scored by a model trained
+    Labelled tickets get out-of-fold predictions: the model that scores a ticket never saw that
+    ticket's label or its note. Tickets without a reference label are scored by a model trained
     on all labelled tickets.
     """
     t = t.copy()
@@ -51,23 +80,21 @@ def categorise(t: pd.DataFrame, folds=5, seed=0) -> pd.DataFrame:
     t["ai_confidence"] = np.nan
     lab = t.index[t.ref_category.notna()]
     unl = t.index[t.ref_category.isna()]
-    X, y = _text(t.customer_message), t.ref_category
 
     skf = StratifiedKFold(n_splits=folds, shuffle=True, random_state=seed)
-    for tr, te in skf.split(lab, y[lab]):
-        m = build_model().fit(X[lab[tr]], y[lab[tr]])
-        _assign(t, lab[te], m, X)
+    for tr, te in skf.split(lab, t.ref_category[lab]):
+        _assign(t, lab[te], fit_model(t.loc[lab[tr]]))
 
-    final = build_model().fit(X[lab], y[lab])
+    final = fit_model(t.loc[lab])
     if len(unl):
-        _assign(t, unl, final, X)
+        _assign(t, unl, final)
     return t, final
 
 
-def _assign(t, idx, model, X):
-    proba = model.predict_proba(X[idx])
-    t.loc[idx, "ai_category"] = model.classes_[proba.argmax(1)]
-    t.loc[idx, "ai_confidence"] = proba.max(1)
+def _assign(t, idx, model):
+    category, margin = predict(model, t.loc[idx, "customer_message"])
+    t.loc[idx, "ai_category"] = category
+    t.loc[idx, "ai_confidence"] = margin
 
 
 # ---------------------------------------------------------------- optional local LLM stage

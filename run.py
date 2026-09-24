@@ -12,7 +12,7 @@ import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 from vireo import business_case, evaluate, report  # noqa: E402
-from vireo.classify import categorise, llm_review  # noqa: E402
+from vireo.classify import LOW_CONFIDENCE, categorise, llm_review  # noqa: E402
 from vireo.labels import add_reference_labels  # noqa: E402
 from vireo.load import _find, audit, load, load_raw  # noqa: E402
 from pathlib import Path  # noqa: E402
@@ -38,7 +38,7 @@ def main():
     t = add_reference_labels(load(a.data))
     print(f"Loaded {len(t):,} tickets (Jan 2025 – Jun 2026, data fixes applied)")
     t, _ = categorise(t)
-    print(f"Categorised; {(t.ai_confidence < 0.6).sum()} low-confidence tickets")
+    print(f"Categorised; {(t.ai_confidence < LOW_CONFIDENCE).sum()} low-confidence tickets")
 
     if a.benchmark is not None:
         from vireo import benchmark
@@ -62,6 +62,9 @@ def main():
     print(f"Misrouted (Jan-Jun 2026): {s['misroute_rate_2026h1']:.1%}; "
           f"cost ~Rs {s['misroute_cost_per_quarter_inr']:,.0f}/quarter at 650 tickets/week")
     print(f"Out-of-time accuracy: AI {eval_res['ai_category_accuracy']:.1%} vs bot {eval_res['bot_category_accuracy']:.1%}")
+    rb = eval_res["robustness"]
+    print(f"Unseen phrasings: {rb['unseen']:.1%} (with noise {rb['noisy']:.1%}); "
+          f"{rb['confident_accuracy']:.1%} on the {1 - rb['triage_share']:.0%} it is confident about")
     print(f"Orders with both refund and replacement: {len(rr)} "
           f"({int(rr.likely_double_payout.sum())} look like double payouts) -> {a.out}/refund_and_replacement.csv")
     print(f"\nReport: {path}   ({time.time() - t0:.0f}s)")

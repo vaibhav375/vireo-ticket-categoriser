@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .classify import LOW_CONFIDENCE, _text, ask_llm, build_model, check_llm, unload_llm
+from .classify import LOW_CONFIDENCE, ask_llm, check_llm, fit_model, predict, unload_llm
 from .evaluate import AUDIT_FILE
 
 
@@ -22,19 +22,19 @@ def _llm_run(msgs, model):
 
 def run(t, models, out_path="out/llm_benchmark.md"):
     audit = pd.read_csv(AUDIT_FILE).merge(t[["ticket_id", "customer_message", "ai_category"]], on="ticket_id")
+    msgs = audit.customer_message
     low = t[(t.ai_confidence < LOW_CONFIDENCE) & t.ref_category.notna()]
 
     # Fast model: per-ticket latency, one message at a time (how it would run at intake)
     lab = t[t.ref_category.notna()]
-    m = build_model().fit(_text(lab.customer_message), lab.ref_category)
-    msgs = _text(audit.customer_message)
+    m = fit_model(lab)
     start = time.perf_counter()
-    for x in msgs:
-        m.predict(pd.Series([x]))
+    for x in audit.customer_message:
+        predict(m, pd.Series([x]))
     fast_ms = (time.perf_counter() - start) / len(msgs) * 1000
 
     rows = [{
-        "model": "TF-IDF + logistic regression (default)", "size": "~5 MB",
+        "model": "TF-IDF + linear SVM (default)", "size": "~5 MB",
         "audit_accuracy": (audit.ai_category == audit.true_category).mean(),
         "low_conf_accuracy": (low.ai_category == low.ref_category).mean(),
         "median_latency_s": fast_ms / 1000, "p95_latency_s": np.nan, "cold_start_s": np.nan,
