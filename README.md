@@ -22,7 +22,7 @@ pip install -r requirements.txt
 Copy the data pack into `data/`. The files can keep their original `<uuid>-tickets.csv` names:
 
 ```
-data/tickets.csv  data/agents.csv  (orders, customers, products optional)
+data/tickets.csv  data/agents.csv  data/products.csv  (orders, customers not needed)
 ```
 
 ```bash
@@ -40,6 +40,7 @@ Open `out/report.html` in a browser (it loads Plotly from a CDN, so it needs int
 | `out/report.html` | The chart Priya asked for, drawn two ways, plus misroute cost and workload per agent |
 | `out/evaluation.md` | Out-of-time accuracy, confusion matrix, every disagreement, hand-audit results |
 | `out/tickets_categorised.csv` | One row per ticket: bot tag, AI category, confidence, owning team both ways, misrouted flag |
+| `out/refund_and_replacement.csv` | Orders that got both a refund and a replacement (policy §5 says never both), for Finance |
 | `out/monthly_by_category.csv`, `out/monthly_by_team.csv` | The chart data |
 
 ## How it works

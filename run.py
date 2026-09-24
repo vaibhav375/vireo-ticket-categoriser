@@ -13,7 +13,9 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 from vireo import business_case, evaluate, report  # noqa: E402
 from vireo.classify import categorise, llm_review  # noqa: E402
 from vireo.labels import add_reference_labels  # noqa: E402
-from vireo.load import audit, load, load_raw  # noqa: E402
+from vireo.load import _find, audit, load, load_raw  # noqa: E402
+from pathlib import Path  # noqa: E402
+import pandas as pd  # noqa: E402
 
 
 def main():
@@ -42,12 +44,16 @@ def main():
     eval_res, audit_res = evaluate.write_report(t, f"{a.out}/evaluation.md")
     s, shares, by_route, workload, t = business_case.summary(t, load_raw(a.data)[1])
     path = report.write(t, s, shares, by_route, workload, eval_res, audit_res, a.out, usage)
+    rr = business_case.refund_and_replacement(t, pd.read_csv(_find(Path(a.data), "products.csv")))
+    rr.to_csv(f"{a.out}/refund_and_replacement.csv")
 
     print(f"\nBilling share:   {s['billing_share_bot']:.1%} by bot tag -> {s['billing_share_real']:.1%} real")
     print(f"Logistics share: {s['logistics_share_bot']:.1%} by bot tag -> {s['logistics_share_real']:.1%} real")
     print(f"Misrouted (Jan-Jun 2026): {s['misroute_rate_2026h1']:.1%}; "
           f"cost ~Rs {s['misroute_cost_per_quarter_inr']:,.0f}/quarter at 650 tickets/week")
     print(f"Out-of-time accuracy: AI {eval_res['ai_category_accuracy']:.1%} vs bot {eval_res['bot_category_accuracy']:.1%}")
+    print(f"Orders with both refund and replacement: {len(rr)} "
+          f"({int(rr.likely_double_payout.sum())} look like double payouts) -> {a.out}/refund_and_replacement.csv")
     print(f"\nReport: {path}   ({time.time() - t0:.0f}s)")
 
 

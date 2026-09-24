@@ -109,3 +109,23 @@ def summary(t, agents):
         "saving_per_quarter_inr": saving,
         "two_hires_per_quarter_inr": TWO_HIRES_PER_YEAR / 4,
     }, shares, g, workload_per_agent(t, agents), t
+
+
+# Refund codes that mean the customer already got their money back for the item itself.
+# With a replacement on the same order, these look like a double payout (policy §5).
+FULL_REFUND_CODES = {"RETURN-QC-OK", "DOA-REPL", "LOST-TRANSIT", "WTY-BUYBACK"}
+
+
+def refund_and_replacement(t, products):
+    """Orders that got both a refund and a replacement across their tickets. Policy §5: never both."""
+    x = t[t.order_id.notna()]
+    g = x.groupby("order_id").agg(
+        tickets=("ticket_id", lambda s: " ".join(s)), sku=("product_sku", "first"),
+        refund_inr=("refund_amount_inr", "sum"),
+        refund_codes=("refund_reason_code", lambda s: ",".join(sorted(set(s.dropna())))),
+        replaced=("replacement_issued", lambda s: (s == "Y").any()))
+    g = g[(g.refund_inr > 0) & g.replaced].drop(columns="replaced")
+    unit_cost = products.set_index("sku").unit_cost_inr
+    g["replacement_cost_inr"] = g.sku.map(unit_cost) + 340  # policy §5 planning cost
+    g["likely_double_payout"] = g.refund_codes.str.split(",").map(lambda c: bool(FULL_REFUND_CODES & set(c)))
+    return g.sort_values(["likely_double_payout", "refund_inr"], ascending=False)
