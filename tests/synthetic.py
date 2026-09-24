@@ -6,6 +6,7 @@ Built so the answers are known in advance:
 - legacy rows (before 14 Sep 2025) have resolved_at in UTC, as in the real export
 - a few rows fall before the stated window
 """
+import datetime as dt
 import random
 from pathlib import Path
 
@@ -61,17 +62,17 @@ def make_tickets(n=660, seed=0, start="2025-01-01", end="2026-06-30", out_of_win
         bot = BOT_CATEGORY[cat]
         if cat == "Delivery & Shipping" and rng.random() < 0.4:
             msg, bot = f"paid already. {msg}", "Billing & Payments"  # the bot hears "paid"
-        created = start + pd.Timedelta(seconds=rng.random() * span)
+        created = start + dt.timedelta(seconds=rng.random() * span)
         if i >= n:
-            created = start - pd.Timedelta(days=30 + i)  # before the stated window
+            created = start - dt.timedelta(days=30 + i)  # before the stated window
         assigned = TEAM.get(bot, "Chat Frontline")
         resolver = TEAM.get(cat, "Chat Frontline")
         legacy = created < GO_LIVE
-        resolved = created + pd.Timedelta(hours=rng.uniform(1, 48))
+        resolved = created + dt.timedelta(hours=rng.uniform(1, 48))
         rows.append({
             "ticket_id": f"TK-{i:05d}", "created_at": created.floor("min"),
-            "first_response_at": (created + pd.Timedelta(minutes=rng.uniform(1, 600))).floor("min"),
-            "resolved_at": (resolved - pd.Timedelta(minutes=330) if legacy else resolved).floor("min"),
+            "first_response_at": (created + dt.timedelta(minutes=rng.uniform(1, 600))).floor("min"),
+            "resolved_at": (resolved - dt.timedelta(minutes=330) if legacy else resolved).floor("min"),
             "status": "resolved", "channel": rng.choice(["chat", "email", "voice", "social"]),
             "customer_id": f"C{i % 97:03d}", "order_id": f"VR{i % 150:04d}", "product_sku": "VA-EB-PL2",
             "category": bot, "priority": "Normal", "assigned_team": assigned, "agent_id": TEAM_AGENT[resolver],

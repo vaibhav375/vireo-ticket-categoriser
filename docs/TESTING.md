@@ -2,15 +2,15 @@
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest              # 77 fast tests, ~45 s, synthetic data only (no client data needed)
+python -m pytest              # 79 fast tests, ~50 s, synthetic data only (no client data needed)
 python -m pytest -m slow      # 7 regression + resource tests on the real pack in data/ (~90 s)
 ```
 
 Use `python -m pytest`, not bare `pytest`: a `pytest` launcher left over from another Python install
 (this happened on the development machine) runs the wrong interpreter and reports `No module named 'pytest'`.
 
-Every test was written before the fix it guards, and watched failing first. For the core data fixes,
-the code was also deliberately broken (UTC shift removed, issue-marker rule removed, roster dates
+Every bug fix started with a test that failed first. Tests describing behaviour that was already right passed
+straight away, so for the core data fixes the code was deliberately broken (UTC shift removed, issue-marker rule removed, roster dates
 ignored) to confirm a test catches it.
 
 ## What is covered
@@ -25,6 +25,7 @@ ignored) to confirm a test catches it.
 | Bad data | `test_bad_data.py` | Missing columns named; unreadable created_at names the row; unreadable other times become unknown; duplicate IDs; blank messages and notes; unknown agent or channel; an export from another period |
 | End to end | `test_pipeline_e2e.py` | `run.py` as a user runs it: every output written, counts consistent (monthly tables sum to the ticket count), no "nan" in the report, new output folder, run from another folder, `--audit`, clean exit code 2 with a one-line message for data problems, `--start/--end` for another export |
 | Local LLM | `test_llm_safety.py` | Against a fake Ollama HTTP server: oversized model refused before loading, Ollama down, model not pulled, other models unloaded first, only uncertain tickets sent, unload afterwards, a failed call or garbage reply keeps the fast model's answer |
+| Setup | `test_setup.py` | The pipeline raises no deprecation warnings; slow tests are skipped by default even when pytest is started outside the repo |
 | Real data | `test_real_data.py` (slow) | Headline numbers unchanged (Billing 20.8%→14.0%, Logistics 16.4%→26.0%, misroute 16.8%, out-of-time 100%, unseen phrasings 89.0% with range, audit 150/150, refund list 74/42); peak memory < 1 GB; run time < 3 min; prediction < 5 ms per ticket |
 
 ## What testing found (all fixed)
@@ -43,6 +44,9 @@ ignored) to confirm a test catches it.
 11. **The note typo "pkp msised" got no label.** The pickup pattern only allowed typos starting "mi".
 12. **The unseen-phrasing score moved ±1–2 points** depending on how phrasings fell into folds. It is now repeated over
     3 shuffled splits and reported with its range: 89.0% (86.7–90.4%).
+13. **Running pytest from the parent folder ignored `pytest.ini`.** Slow tests ran by default and 42,846 warnings
+    appeared. The warnings came from `pd.Timedelta(...)` on numpy 2.5, and were hidden rather than fixed. Now Python's
+    `datetime.timedelta` is used instead (0 warnings), and the slow-test rule lives in `conftest.py`, which loads from any folder.
 
 Data problems now print one line (`Data problem: ...`) and exit with code 2, never a stack trace.
 

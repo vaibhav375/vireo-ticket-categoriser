@@ -82,7 +82,7 @@ Yes, from the first hour of looking at the data:
 - **Only transfers and SLA credits are costed.** CSAT damage (2.3 vs 3.1) and slower resolution are
   reported but not priced, so the saving is understated. Agent time inside the Rs 305 transfer cost may overlap.
 - **Workload per agent uses today's roster for every month.** The roster has no end dates, so leavers and joiners aren't modelled.
-- **Tests run on macOS only** (M1, 8 GB, Python 3.12). 84 tests: 77 on synthetic data and 7 on the real pack (`docs/TESTING.md`).
+- **Tests run on macOS only** (M1, 8 GB, Python 3.12). 86 tests: 79 on synthetic data and 7 on the real pack (`docs/TESTING.md`).
   Not tested: Linux or Windows, browser rendering of the report beyond its content, and real live tickets.
 - **The report loads Plotly from a CDN**, so it needs internet to render. Light mode only.
 - **Resolution-time medians exclude open and pending tickets** (no resolved_at).

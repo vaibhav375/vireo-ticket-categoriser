@@ -67,7 +67,7 @@ dispatch status). The bot files these under "Other".
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest            # 77 fast tests on synthetic data (~45 s)
+python -m pytest            # 79 fast tests on synthetic data (~50 s), from any folder
 python -m pytest -m slow    # 7 regression + resource tests on the real pack (~90 s)
 ```
 
@@ -95,7 +95,7 @@ Use `VIREO_LLM_MODEL=<name>` to try another model. See `docs/LLM_DECISION.md` fo
 - `docs/RECORDING.md` — script for the 3-minute screen recording
 - `docs/LLM_DECISION.md` — local LLM vs the default model: measured accuracy, latency, memory
 - `docs/MODEL_IMPROVEMENT.md` — the harder test, the 26 candidates tried, and why the current model won
-- `docs/TESTING.md` — the test suite, and the 12 problems it found
+- `docs/TESTING.md` — the test suite, and the 13 problems it found
 
 ## Data
 

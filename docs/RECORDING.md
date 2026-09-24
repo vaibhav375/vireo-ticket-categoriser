@@ -37,5 +37,5 @@ customer actually needed: Billing drops from 21% to 14%, and Logistics rises fro
 - "A 12-colour stacked chart. Nobody can tell 12 colours apart, so it became small multiples."
 
 **2:35–3:00 — Close** (terminal: `python run.py`, show it finish in ~80s; then `pytest`)
-"One command, about 80 seconds, no paid calls, no LLM needed, and 84 tests that each failed before the fix they guard. The goal: cut wrong-team tickets from 17% to 5%, about Rs 1.5 lakh a quarter.
+"One command, about 80 seconds, no paid calls, no LLM needed, and 86 tests; every bug fix started with a failing test. The goal: cut wrong-team tickets from 17% to 5%, about Rs 1.5 lakh a quarter.
 Hold the hires eight weeks; if they're still needed, Logistics, not Billing."

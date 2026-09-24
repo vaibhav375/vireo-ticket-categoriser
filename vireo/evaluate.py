@@ -8,6 +8,7 @@
    note (eval/audit_labels.csv). This checks the reference labels themselves, which
    steps 1 and 2 take on trust.
 """
+import datetime as dt
 from pathlib import Path
 
 import pandas as pd
@@ -29,7 +30,7 @@ def out_of_time(t):
     bot = te.category
     res = {
         "train_tickets": len(tr), "test_tickets": len(te),
-        "train_period": period_label(t.created_at.min(), split - pd.Timedelta(days=1)),
+        "train_period": period_label(t.created_at.min(), split - dt.timedelta(days=1)),
         "test_period": period_label(split, t.created_at.max()),
         "ai_category_accuracy": (te.pred == te.ref_category).mean(),
         "bot_category_accuracy": (bot == te.ref_category).mean(),

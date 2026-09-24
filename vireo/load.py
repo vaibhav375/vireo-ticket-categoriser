@@ -3,13 +3,14 @@
 Every fix here comes from something in the README, support-policy.pdf or the email
 thread, confirmed against the data. `audit()` prints the evidence for each.
 """
+import datetime as dt
 from pathlib import Path
 
 import pandas as pd
 
 WINDOW_START = pd.Timestamp("2025-01-01")
 WINDOW_END = pd.Timestamp("2026-07-01")  # exclusive
-LEGACY_UTC_OFFSET = pd.Timedelta(minutes=330)  # IST = UTC+5:30
+LEGACY_UTC_OFFSET = dt.timedelta(minutes=330)  # IST = UTC+5:30. Python timedelta: pd.Timedelta warns on numpy 2.5
 
 # Policy §3: first-response targets, in hours
 SLA_HOURS = {"chat": 0.25, "voice": 2, "social": 4, "email": 8}
