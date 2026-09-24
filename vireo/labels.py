@@ -23,7 +23,7 @@ KEYWORDS = {
     ],
     "Returns & Refunds": [
         r"re?fu?nd (?:pending|not cr\w*dited|delay)", r"rfnd (?:pending|not cr\w*dited|delay)",
-        r"reverse (?:pickup|pkp) pending", r"(?:pickup|pkp) (?:mi\w*s\w*d|not done)", r"\barn\b",
+        r"reverse (?:pickup|pkp) pending", r"(?:pickup|pkp) (?:m\w*s\w*d|not done)", r"\barn\b",
     ],
     "Billing & Payments": [
         r"payment debited", r"deducted without", r"failed ord\w* after payment", r"charged twice",
