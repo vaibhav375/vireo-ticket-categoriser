@@ -47,3 +47,11 @@ def test_unseen_phrasing_test_reports_instead_of_crashing_without_enough_phrasin
     t = t.assign(customer_message=t.customer_message.str.replace("Issue:", "Problem:"))  # no structured lines
     r = current_model(t)
     assert r["tickets"] == 0 and math.isnan(r["unseen"])
+
+
+def test_unseen_phrasing_score_is_averaged_over_several_splits_and_reports_its_range():
+    t = add_reference_labels(make_tickets(out_of_window=0))
+    r = current_model(t, repeats=3)
+    assert r["repeats"] == 3
+    assert r["unseen_min"] <= r["unseen"] <= r["unseen_max"]
+    assert r["noisy_min"] <= r["noisy"] <= r["noisy_max"]

@@ -22,6 +22,16 @@ COST_AGENT_HOUR = 165
 
 FRONTLINE = {"Chat Frontline", "Email Frontline", "Voice Frontline"}
 
+REQUIRED_COLUMNS = [
+    "ticket_id", "created_at", "first_response_at", "resolved_at", "status", "channel", "customer_id", "order_id",
+    "product_sku", "category", "agent_id", "transfers", "csat_score", "refund_amount_inr", "refund_reason_code",
+    "replacement_issued", "customer_message", "agent_notes", "source_system",
+]
+
+
+class DataError(ValueError):
+    """The export can't be used as-is. The message says what to fix."""
+
 
 def _find(data_dir: Path, name: str) -> Path:
     """Accept both `tickets.csv` and the pack's `<uuid>-tickets.csv` naming."""
@@ -38,11 +48,23 @@ def load_raw(data_dir="data"):
     return tickets, agents
 
 
-def load(data_dir="data", keep_out_of_window=False):
-    """Return cleaned tickets joined to the resolving agent's team."""
+def load(data_dir="data", keep_out_of_window=False, start=None, end=None):
+    """Return cleaned tickets joined to the resolving agent's team.
+
+    start/end (end exclusive) default to the window the Set E README states; pass the new
+    export's window for any other export.
+    """
     t, agents = load_raw(data_dir)
-    for c in ["created_at", "first_response_at", "resolved_at"]:
-        t[c] = pd.to_datetime(t[c])
+    missing = sorted(set(REQUIRED_COLUMNS) - set(t.columns))
+    if missing:
+        raise DataError(f"tickets.csv is missing columns: {', '.join(missing)}")
+
+    dup = t.ticket_id.duplicated()
+    if dup.any():
+        print(f"Warning: {int(dup.sum())} duplicate ticket_id rows dropped (kept the first copy)")
+        t = t[~dup].copy()
+
+    _parse_times(t)
 
     # Fix 1 — policy §9: legacy resolution times were rebuilt from a UTC event log,
     # while every other timestamp is IST. Without this, 2,379 legacy tickets resolve
@@ -52,7 +74,13 @@ def load(data_dir="data", keep_out_of_window=False):
 
     # Fix 2 — README says the export covers Jan 2025 – Jun 2026; 139 tickets from 2024
     # are in the file anyway. They are dropped from all counts.
-    t["in_window"] = t.created_at.between(WINDOW_START, WINDOW_END, inclusive="left")
+    start = pd.Timestamp(start) if start is not None else WINDOW_START
+    end = pd.Timestamp(end) if end is not None else WINDOW_END
+    t["in_window"] = t.created_at.between(start, end, inclusive="left")
+    if not t.in_window.any():
+        raise DataError(
+            f"no tickets between {start:%Y-%m-%d} and {end:%Y-%m-%d}; this export runs "
+            f"{t.created_at.min():%Y-%m-%d} to {t.created_at.max():%Y-%m-%d}. Set its window with --start/--end.")
     if not keep_out_of_window:
         t = t[t.in_window].copy()
 
@@ -74,6 +102,31 @@ def load(data_dir="data", keep_out_of_window=False):
     t["customer_message"] = t.customer_message.fillna("")
     t["agent_notes"] = t.agent_notes.fillna("")
     return t.reset_index(drop=True)
+
+
+def last_months(t, n):
+    """Start of the last n calendar months in the data (the latest month counts as one)."""
+    latest = t.created_at.max().to_period("M")
+    return (latest - (n - 1)).to_timestamp()
+
+
+def period_label(start, end_inclusive):
+    return f"{start:%b %Y} – {end_inclusive:%b %Y}"
+
+
+def _parse_times(t):
+    """created_at must be readable (every count depends on it). Other times may be unknown."""
+    for c in ["created_at", "first_response_at", "resolved_at"]:
+        parsed = pd.to_datetime(t[c], errors="coerce", format="mixed")
+        bad = t[c].notna() & parsed.isna()
+        if bad.any():
+            example = t.loc[bad].iloc[0]
+            if c == "created_at":
+                raise DataError(f"{int(bad.sum())} rows have an unreadable created_at, "
+                                f"e.g. {example.ticket_id}: '{example[c]}'")
+            print(f"Warning: {int(bad.sum())} unreadable {c} values treated as unknown "
+                  f"(e.g. {example.ticket_id}: '{example[c]}')")
+        t[c] = parsed
 
 
 def _attach_agent(t, agents):

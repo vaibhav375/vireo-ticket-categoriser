@@ -73,9 +73,14 @@ def score(t, fit_predict, folds=5, seed=0):
     return {"unseen_phrasing": clean_hits / n, "unseen_phrasing_noisy": noisy_hits / n, "tickets": n}
 
 
-def current_model(t, folds=5, seed=0):
-    """The hard test for the model the pipeline actually uses (classify.fit_model), plus how
-    accurate the confident tickets are when the least certain ones go to a person."""
+def current_model(t, folds=5, repeats=3):
+    """The hard test for the model the pipeline actually uses (classify.fit_model).
+
+    Which phrasings land in which fold moves the score by a couple of points (seen when a
+    single extra labelled ticket shifted a one-split score from 88.6% to 89.8%). So the test
+    is repeated over `repeats` shuffled group splits (fixed seeds) and the mean and range are
+    reported. Also: accuracy on confident tickets when the least certain go to a person.
+    """
     from .classify import LOW_CONFIDENCE, fit_model, predict
 
     t = t[t.ref_category.notna()].copy()
@@ -83,19 +88,27 @@ def current_model(t, folds=5, seed=0):
     g = t[t.phrase.notna()]
     if g.phrase.nunique() < folds:  # not enough distinct phrasings to hold any out
         nan = float("nan")
-        return {"tickets": 0, "phrasings": int(g.phrase.nunique()), "unseen": nan, "noisy": nan,
+        return {"tickets": 0, "phrasings": int(g.phrase.nunique()), "repeats": 0, "unseen": nan, "noisy": nan,
+                "unseen_min": nan, "unseen_max": nan, "noisy_min": nan, "noisy_max": nan,
                 "triage_share": nan, "confident_accuracy": nan}
-    rng = random.Random(seed)
-    ok, ok_noisy, margins = [], [], []
-    for tr, te in GroupKFold(n_splits=folds).split(g, groups=g.phrase):
-        train, test = g.iloc[tr], g.iloc[te]
-        model = fit_model(train)
-        pred, margin = predict(model, test.customer_message)
-        pred_noisy, _ = predict(model, test.customer_message.map(lambda s: corrupt(s, rng)))
-        ok += list(pred == test.ref_category.values)
-        ok_noisy += list(pred_noisy == test.ref_category.values)
-        margins += list(margin)
-    ok, margins = np.array(ok), np.array(margins)
-    confident = margins >= LOW_CONFIDENCE
-    return {"tickets": len(g), "phrasings": g.phrase.nunique(), "unseen": ok.mean(), "noisy": np.mean(ok_noisy),
-            "triage_share": 1 - confident.mean(), "confident_accuracy": ok[confident].mean()}
+    clean, noisy, all_ok, all_margin = [], [], [], []
+    for seed in range(repeats):
+        rng = random.Random(seed)
+        ok, ok_noisy = [], []
+        for tr, te in GroupKFold(n_splits=folds, shuffle=True, random_state=seed).split(g, groups=g.phrase):
+            train, test = g.iloc[tr], g.iloc[te]
+            model = fit_model(train)
+            pred, margin = predict(model, test.customer_message)
+            pred_noisy, _ = predict(model, test.customer_message.map(lambda s: corrupt(s, rng)))
+            ok += list(pred == test.ref_category.values)
+            ok_noisy += list(pred_noisy == test.ref_category.values)
+            all_margin += list(margin)
+        clean.append(np.mean(ok))
+        noisy.append(np.mean(ok_noisy))
+        all_ok += ok
+    all_ok, all_margin = np.array(all_ok), np.array(all_margin)
+    confident = all_margin >= LOW_CONFIDENCE
+    return {"tickets": len(g), "phrasings": g.phrase.nunique(), "repeats": repeats,
+            "unseen": float(np.mean(clean)), "unseen_min": float(min(clean)), "unseen_max": float(max(clean)),
+            "noisy": float(np.mean(noisy)), "noisy_min": float(min(noisy)), "noisy_max": float(max(noisy)),
+            "triage_share": float(1 - confident.mean()), "confident_accuracy": float(all_ok[confident].mean())}

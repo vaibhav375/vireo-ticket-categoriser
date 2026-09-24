@@ -10,13 +10,14 @@ measured on helpdesk tickets only.
 """
 import pandas as pd
 
-from .load import COST_SLA_CREDIT, COST_TRANSFER
+from .load import COST_SLA_CREDIT, COST_TRANSFER, last_months, period_label
 from .taxonomy import OWNER, team_group
 
 WEEKLY_VOLUME = 650  # Vireo's stated volume (brief); the export holds ~180/week
 WEEKS_PER_QUARTER = 13
 TARGET_MISROUTE = 0.05  # conservative: the model is ~99% right on this data, real data will be messier
 TWO_HIRES_PER_YEAR = 900_000  # Arjun: "about Rs 9 lakh a year"
+RECENT_MONTHS = 6  # "today's" misroute rate and workload: the last six months of the export
 
 
 def add_routing(t):
@@ -65,8 +66,8 @@ def _route(by_route, true_owner, bot_owner):
             "median_resolution_h": float("nan")}
 
 
-def recent_misroute_rate(t, since="2026-01-01"):
-    r = t[t.created_at >= since]
+def recent_misroute_rate(t):
+    r = t[t.created_at >= last_months(t, RECENT_MONTHS)]
     return r.misrouted.mean(), len(r)
 
 
@@ -76,7 +77,7 @@ def workload_per_agent(t, agents):
     heads = agents.groupby("team").agent_id.nunique()
     heads.index = heads.index.map(team_group)
     heads = heads.groupby(level=0).sum()
-    recent = t[t.created_at >= "2026-01-01"]
+    recent = t[t.created_at >= last_months(t, RECENT_MONTHS)]
     months = recent.month.nunique()
     df = pd.DataFrame({
         "agents": heads,
@@ -106,7 +107,11 @@ def summary(t, agents):
         "logistics_share_real": shares.at["Logistics", "by_real_category"],
         "billing_queue_really_logistics": len(b2l) / billing_queue if billing_queue else 0.0,
         "misroute_rate_all": t.misrouted.mean(),
-        "misroute_rate_2026h1": rate,
+        "misroute_rate_recent": rate,
+        "recent_period": period_label(last_months(t, RECENT_MONTHS), t.created_at.max()),
+        "full_period": period_label(t.created_at.min(), t.created_at.max()),
+        "helpdesk_period": (period_label(t[t.transfers_known].created_at.min(), t.created_at.max())
+                            if t.transfers_known.any() else "none"),
         "recent_tickets": n_recent,
         "extra_transfers_per_misroute": x_tr,
         "extra_breach_rate_per_misroute": x_br,

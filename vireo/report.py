@@ -78,8 +78,8 @@ def write(t, s, shares, by_route, workload, eval_res, audit_res, out="out", llm_
     tiles = [
         ("Billing share of tickets", f"{pct(s['billing_share_bot'])} → {pct(s['billing_share_real'])}", "bot tag → real"),
         ("Logistics share of tickets", f"{pct(s['logistics_share_bot'])} → {pct(s['logistics_share_real'])}", "bot tag → real"),
-        ("Billing queue that is really delivery", pct(s["billing_queue_really_logistics"]), "Jan 2025 – Jun 2026"),
-        ("Tickets sent to the wrong team", pct(s["misroute_rate_2026h1"]), "Jan – Jun 2026"),
+        ("Billing queue that is really delivery", pct(s["billing_queue_really_logistics"]), s["full_period"]),
+        ("Tickets sent to the wrong team", pct(s["misroute_rate_recent"]), s["recent_period"]),
         ("Cost of misrouting", inr(s["misroute_cost_per_quarter_inr"]) + " / qtr", "at 650 tickets/week"),
     ]
     tiles_html = "".join(f'<div class="tile"><div class="k">{html.escape(k)}</div><div class="v">{v}</div>'
@@ -119,7 +119,7 @@ h1 {{ font-size:26px; margin:0 0 4px; }} h2 {{ font-size:19px; margin:36px 0 6px
 p, li {{ max-width:75ch; }} .note {{ color:var(--muted); font-size:13px; }}
 </style></head><body><main>
 <h1>Vireo Audio — where the support work really goes</h1>
-<p class="sub">{s['tickets']:,} tickets, Jan 2025 – Jun 2026, after data fixes. Categories are read from the customer's
+<p class="sub">{s['tickets']:,} tickets, {s['full_period']}, after data fixes. Categories are read from the customer's
 opening message by a model trained on agents' closing notes.</p>
 <div class="tiles">{tiles_html}</div>
 
@@ -132,13 +132,13 @@ Billing shrinks and Logistics grows, mainly from “I paid but nothing arrived�
 <p>“Order Changes” (cancel, address, dispatch) is a new category; the bot files these under “Other”.</p>
 <div class="card">{category_chart(t).to_html(full_html=False, include_plotlyjs=False)}</div>
 
-<h2>What a misroute costs: delivery tickets, helpdesk era (Sep 2025 – Jun 2026)</h2>
+<h2>What a misroute costs: delivery tickets, helpdesk era ({s['helpdesk_period']})</h2>
 <table class="plain"><tr><th></th><th>Tickets</th><th>Transfers / ticket</th><th>SLA breached</th><th>CSAT</th><th>Median time to resolve</th></tr>{route_rows}</table>
 <p class="note">Across all categories a misrouted ticket carries {s['extra_transfers_per_misroute']:.2f} extra transfers and
 {s['extra_breach_rate_per_misroute']:.0%} extra SLA breaches versus correctly routed tickets of the same kind,
 ≈ Rs {s['cost_per_misroute_inr']:.0f} per ticket at policy rates (Rs 305 per transfer, Rs 350 per breach).</p>
 
-<h2>Workload per agent, Jan – Jun 2026 (tickets per month in this export)</h2>
+<h2>Workload per agent, {s['recent_period']} (tickets per month in this export)</h2>
 {_table(workload.rename(columns=WORKLOAD_COLS))}
 <p class="note">Escalations &amp; Warranty is Tier 2 and measured on days to resolve, not volume (policy §6). The export holds
 about 180 tickets a week against the stated 650, so read these as relative, not absolute.</p>
@@ -147,7 +147,7 @@ about 180 tickets a week against the stated 650, so read these as relative, not 
 {_table((shares * 100).rename(columns=SHARE_COLS), lambda v: f"{v:.1f}%")}
 
 <h2>How we know it's right</h2>
-<p>Out-of-time test (trained to Mar 2026, tested Apr – Jun 2026): AI category agrees with the agent's closing note on
+<p>Out-of-time test (trained on {eval_res['train_period']}, tested on {eval_res['test_period']}): AI category agrees with the agent's closing note on
 {eval_res['ai_category_accuracy']:.1%} of {eval_res['test_tickets']:,} tickets; the bot's tag agrees on
 {eval_res['bot_category_accuracy']:.1%}. {audit_line} Full detail in <code>out/evaluation.md</code>.</p>
 {llm_line}
