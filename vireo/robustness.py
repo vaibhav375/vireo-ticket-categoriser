@@ -24,6 +24,8 @@ def phrase_groups(t):
     issue = t.customer_message.str.lower().str.extract(r"issue:\s*([^\n]+)")[0].dropna().map(_norm)
     counts = issue.value_counts()
     canon = sorted((p for p, c in counts.items() if c >= 2 and len(p) >= 10), key=len, reverse=True)
+    if not canon:  # no structured messages: an empty pattern would match everything
+        return pd.Series([None] * len(t), index=t.index, dtype=object)
     rx = re.compile("|".join(re.escape(p) for p in canon))
     return t.customer_message.map(lambda s: (m := rx.search(_norm(s))) and m.group(0))
 
@@ -79,6 +81,10 @@ def current_model(t, folds=5, seed=0):
     t = t[t.ref_category.notna()].copy()
     t["phrase"] = phrase_groups(t)
     g = t[t.phrase.notna()]
+    if g.phrase.nunique() < folds:  # not enough distinct phrasings to hold any out
+        nan = float("nan")
+        return {"tickets": 0, "phrasings": int(g.phrase.nunique()), "unseen": nan, "noisy": nan,
+                "triage_share": nan, "confident_accuracy": nan}
     rng = random.Random(seed)
     ok, ok_noisy, margins = [], [], []
     for tr, te in GroupKFold(n_splits=folds).split(g, groups=g.phrase):

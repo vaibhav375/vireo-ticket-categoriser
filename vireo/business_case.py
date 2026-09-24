@@ -32,7 +32,9 @@ def volume_shares(t):
     """Share of tickets by bot tag vs by real category, for the teams in the debate."""
     bot = t.bot_owner.value_counts(normalize=True)
     true = t.true_owner.value_counts(normalize=True)
-    return pd.DataFrame({"by_bot_tag": bot, "by_real_category": true}).fillna(0).sort_values("by_real_category", ascending=False)
+    teams = ["Frontline", "Logistics", "Billing", "Returns Desk", "Escalations & Warranty"]
+    df = pd.DataFrame({"by_bot_tag": bot, "by_real_category": true}).reindex(teams).fillna(0)
+    return df.sort_values("by_real_category", ascending=False)
 
 
 def cost_of_misrouting(t):
@@ -53,6 +55,14 @@ def cost_of_misrouting(t):
         tickets=("ticket_id", "size"), transfers=("transfers", "mean"), sla_breach=("sla_breach", "mean"),
         csat=("csat_score", "mean"), median_resolution_h=("resolution_h", "median")).round(3)
     return by_route, extra_transfers, extra_breach, per_ticket
+
+
+def _route(by_route, true_owner, bot_owner):
+    """Stats for one (real owner, bot owner) route; zeros if the export has none."""
+    if (true_owner, bot_owner) in by_route.index:
+        return by_route.loc[(true_owner, bot_owner)].to_dict()
+    return {"tickets": 0, "transfers": float("nan"), "sla_breach": float("nan"), "csat": float("nan"),
+            "median_resolution_h": float("nan")}
 
 
 def recent_misroute_rate(t, since="2026-01-01"):
@@ -87,13 +97,14 @@ def summary(t, agents):
     now_cost = rate * q_volume * per_ticket
     saving = (rate - TARGET_MISROUTE) * q_volume * per_ticket
     b2l = t[(t.bot_owner == "Billing") & (t.true_owner == "Logistics")]
+    billing_queue = (t.bot_owner == "Billing").sum()
     return {
         "tickets": len(t),
         "billing_share_bot": shares.at["Billing", "by_bot_tag"],
         "billing_share_real": shares.at["Billing", "by_real_category"],
         "logistics_share_bot": shares.at["Logistics", "by_bot_tag"],
         "logistics_share_real": shares.at["Logistics", "by_real_category"],
-        "billing_queue_really_logistics": len(b2l) / (t.bot_owner == "Billing").sum(),
+        "billing_queue_really_logistics": len(b2l) / billing_queue if billing_queue else 0.0,
         "misroute_rate_all": t.misrouted.mean(),
         "misroute_rate_2026h1": rate,
         "recent_tickets": n_recent,
@@ -101,8 +112,8 @@ def summary(t, agents):
         "extra_breach_rate_per_misroute": x_br,
         "cost_per_misroute_inr": per_ticket,
         "csat_misrouted": t[t.misrouted].csat_score.mean(), "csat_routed_ok": t[~t.misrouted].csat_score.mean(),
-        "delivery_via_billing": g.loc[("Logistics", "Billing")].to_dict(),
-        "delivery_via_logistics": g.loc[("Logistics", "Logistics")].to_dict(),
+        "delivery_via_billing": _route(g, "Logistics", "Billing"),
+        "delivery_via_logistics": _route(g, "Logistics", "Logistics"),
         "quarter_volume_at_650_week": q_volume,
         "misroute_cost_per_quarter_inr": now_cost,
         "target_misroute_rate": TARGET_MISROUTE,

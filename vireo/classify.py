@@ -34,8 +34,8 @@ LOW_CONFIDENCE = 0.2  # score margin; see module docstring
 
 
 def _text(s: pd.Series) -> pd.Series:
-    # "[IVR transcript]" marks the channel, not the topic
-    return s.str.replace(r"^\[IVR transcript\]\s*", "", regex=True)
+    # Missing messages count as empty. "[IVR transcript]" marks the channel, not the topic.
+    return s.fillna("").astype(str).str.replace(r"^\[IVR transcript\]\s*", "", regex=True)
 
 
 def note_text(notes: pd.Series) -> pd.Series:
@@ -56,6 +56,8 @@ def build_model():
 def fit_model(train: pd.DataFrame):
     """Train on labelled tickets' messages and their notes. Only ever pass training tickets."""
     train = train[train.ref_category.notna()]
+    if train.empty:
+        raise ValueError("no labelled tickets to train on: no agent note could be read (see labels.py)")
     X = pd.concat([_text(train.customer_message), note_text(train.agent_notes)], ignore_index=True)
     y = pd.concat([train.ref_category, train.ref_category], ignore_index=True)
     return build_model().fit(X, y)
@@ -80,6 +82,8 @@ def categorise(t: pd.DataFrame, folds=5, seed=0) -> pd.DataFrame:
     t["ai_confidence"] = np.nan
     lab = t.index[t.ref_category.notna()]
     unl = t.index[t.ref_category.isna()]
+    if len(lab) == 0:
+        raise ValueError("no labelled tickets to train on: no agent note could be read (see labels.py)")
 
     skf = StratifiedKFold(n_splits=folds, shuffle=True, random_state=seed)
     for tr, te in skf.split(lab, t.ref_category[lab]):
