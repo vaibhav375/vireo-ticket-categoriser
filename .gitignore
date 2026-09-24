@@ -11,3 +11,6 @@ __pycache__/
 .venv/
 .env
 .DS_Store
+
+# Contains raw customer text from the client pack
+eval/audit_sample.csv

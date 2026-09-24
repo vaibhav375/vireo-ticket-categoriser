@@ -1,0 +1,102 @@
+"""How do we know the categories are right, and how often are they wrong?
+
+1. Out-of-time test: train on Jan 2025 – Mar 2026, score Apr – Jun 2026 against the
+   reference labels (agent notes). Compared with the bot's intake tag on the same tickets.
+2. Hand audit: a random sample of tickets judged by reading both the message and the
+   note (eval/audit_labels.csv). This checks the reference labels themselves, which
+   step 1 takes on trust.
+"""
+from pathlib import Path
+
+import pandas as pd
+
+from .classify import _text, build_model
+from .taxonomy import OWNER
+
+AUDIT_FILE = Path("eval/audit_labels.csv")
+SPLIT = pd.Timestamp("2026-04-01")
+
+
+def out_of_time(t):
+    lab = t[t.ref_category.notna()]
+    tr, te = lab[lab.created_at < SPLIT], lab[lab.created_at >= SPLIT].copy()
+    m = build_model().fit(_text(tr.customer_message), tr.ref_category)
+    te["pred"] = m.predict(_text(te.customer_message))
+    # The bot never outputs "Order Changes"; its nearest equivalent is "Other"
+    bot = te.category
+    res = {
+        "train_tickets": len(tr), "test_tickets": len(te),
+        "ai_category_accuracy": (te.pred == te.ref_category).mean(),
+        "bot_category_accuracy": (bot == te.ref_category).mean(),
+        "ai_owner_accuracy": (te.pred.map(OWNER) == te.ref_category.map(OWNER)).mean(),
+        "bot_owner_accuracy": (bot.map(OWNER) == te.ref_category.map(OWNER)).mean(),
+    }
+    confusion = pd.crosstab(te.ref_category, te.pred, rownames=["reference"], colnames=["predicted"])
+    errors = te[te.pred != te.ref_category][["ticket_id", "ref_category", "pred", "customer_message"]]
+    return res, confusion, errors
+
+
+def audit_sample(t, n=150, seed=7, path="eval/audit_sample.csv"):
+    """Draw the random sample to hand-label. Run once; the labels live in AUDIT_FILE."""
+    s = t.sample(n, random_state=seed)[["ticket_id", "customer_message", "agent_notes"]]
+    s.to_csv(path, index=False)
+    return s
+
+
+def audit(t):
+    if not AUDIT_FILE.exists():
+        return None
+    a = pd.read_csv(AUDIT_FILE).merge(
+        t[["ticket_id", "category", "ref_category", "ai_category", "customer_message"]], on="ticket_id")
+    n = len(a)
+    res = {
+        "audited_tickets": n,
+        "ai_correct": int((a.ai_category == a.true_category).sum()),
+        "reference_label_correct": int((a.ref_category == a.true_category).sum()),
+        "reference_label_missing": int(a.ref_category.isna().sum()),
+        "bot_tag_correct": int((a.category == a.true_category).sum()),
+        "ai_owner_correct": int((a.ai_category.map(OWNER) == a.true_category.map(OWNER)).sum()),
+        "bot_owner_correct": int((a.category.map(OWNER) == a.true_category.map(OWNER)).sum()),
+    }
+    wrong = a[a.ai_category != a.true_category][["ticket_id", "true_category", "ai_category", "category", "customer_message", "comment"]]
+    return res, wrong
+
+
+def wilson(k, n, z=1.96):
+    """95% interval for a proportion; honest about small samples."""
+    if n == 0:
+        return (float("nan"), float("nan"))
+    p = k / n
+    d = 1 + z * z / n
+    c = p + z * z / (2 * n)
+    r = z * ((p * (1 - p) / n + z * z / (4 * n * n)) ** 0.5)
+    return ((c - r) / d, (c + r) / d)
+
+
+def write_report(t, path="out/evaluation.md"):
+    res, conf, errors = out_of_time(t)
+    lines = ["# Evaluation", "", "## 1. Out-of-time test (train Jan 2025 – Mar 2026, test Apr – Jun 2026)", ""]
+    lines += [f"- Test tickets with a reference label: {res['test_tickets']:,} (trained on {res['train_tickets']:,})"]
+    lines += [f"- Category accuracy: AI **{res['ai_category_accuracy']:.1%}** vs bot tag {res['bot_category_accuracy']:.1%}"]
+    lines += [f"- Owning-team accuracy: AI **{res['ai_owner_accuracy']:.1%}** vs bot tag {res['bot_owner_accuracy']:.1%}"]
+    lines += ["", "Confusion matrix (rows = reference label from agent note, columns = AI):", "", conf.to_markdown(), ""]
+    lines += [f"### All {len(errors)} disagreements in the test period", "",
+              errors.assign(customer_message=errors.customer_message.str.replace("\n", " ").str[:140]).to_markdown(index=False), ""]
+
+    a = audit(t)
+    lines += ["## 2. Hand audit of a random sample", ""]
+    if a is None:
+        lines += ["Not run: eval/audit_labels.csv missing."]
+    else:
+        r, wrong = a
+        n = r["audited_tickets"]
+        for key, label in [("ai_correct", "AI category"), ("reference_label_correct", "Reference label (agent note rules)"),
+                           ("bot_tag_correct", "Bot intake tag"), ("ai_owner_correct", "AI owning team"),
+                           ("bot_owner_correct", "Bot owning team")]:
+            lo, hi = wilson(r[key], n)
+            lines += [f"- {label}: {r[key]}/{n} = **{r[key] / n:.1%}** (95% CI {lo:.0%}–{hi:.0%})"]
+        lines += [f"- Reference label missing (note said nothing usable): {r['reference_label_missing']}/{n}", ""]
+        lines += ["### Where the AI was wrong in the audit", "",
+                  wrong.assign(customer_message=wrong.customer_message.str.replace("\n", " ").str[:140]).to_markdown(index=False)]
+    Path(path).write_text("\n".join(lines) + "\n")
+    return res, a
