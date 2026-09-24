@@ -68,7 +68,7 @@ Chat vs Email Frontline is decided by channel and shift, not topic. Counting cha
 as misroutes would inflate the problem.
 
 **14. No LLM in the normal run. A free local LLM is an off-by-default experiment.**
-The offline model is 100% on the out-of-time test and 88.6% on unseen phrasings, runs in about 50 s using 0.63 GB, costs nothing, and
+The offline model is 100% on the out-of-time test and 89.0% (86.7–90.4%) on unseen phrasings, runs in about 80 s using 0.7 GB, costs nothing, and
 runs on a clean machine without a key. The first version had a Claude API fallback. It was replaced with
 a free local model (Ollama) so there's no key and no cost, and then measured. On the tickets it would handle,
 qwen2.5:3b is 69% accurate against the fast model's 88%, and about 1,000x slower. On an 8 GB laptop a 7B
@@ -86,6 +86,16 @@ holds out whole phrasings, plus live-chat noise, and chose the model on that alo
 balanced classes, trained on customer messages *plus the training tickets' agent notes* (80.5% → 88.6% on unseen
 phrasings). I deliberately did not hand-write keywords to fix the errors I'd seen, since that would be tuning on the
 test. The audit was never used for choices. Detail: `docs/MODEL_IMPROVEMENT.md`.
+
+**18. Unseen-phrasing score reported as a range over repeated splits.**
+The regression tests showed that a single split moved the score 1–2 points depending on which phrasings landed
+in which fold. It is now the mean over 3 shuffled splits with fixed seeds, reported with its range:
+89.0% (86.7–90.4%). One number with a decimal point overstated how precise it is.
+
+**19. Other exports get their own window, and periods are relative.**
+The window, out-of-time split and "recent" period were written for Set E's dates, so another export silently lost
+every row. Now `--start/--end` set the window, the out-of-time test is the data's last 3 months, and "recent" is
+its last 6 months. The Set E defaults are unchanged, and the regression tests confirm the numbers didn't move.
 
 **16. Repeat contacts not costed.**
 Policy §10 prices repeat contacts, but the repeat rate barely differs between misrouted and

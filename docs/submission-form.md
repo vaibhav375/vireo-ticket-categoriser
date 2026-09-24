@@ -20,7 +20,7 @@ Today: 16.8% × 8,450 × Rs 148 = Rs 2.1 lakh/quarter. At 5%: (16.8% − 5%) × 
 ### What does one run cost, and what would a month cost at Vireo's volume (roughly 650 tickets a week)? *Show the arithmetic. If you used no paid calls, say so.*
 
 **Rs 0 per run and Rs 0 per month. No paid calls anywhere.** Measured on an M1 laptop with 8 GB of RAM:
-- **Full run** (18 months, 11,641 tickets, including training, 5-fold cross-validation and the hard test): about 50 s, 0.63 GB peak RAM.
+- **Full run** (18 months, 11,641 tickets, including training, 5-fold cross-validation and the hard test): about 80 s, 0.70 GB peak RAM.
 - **Per ticket at intake:** 0.9 ms median (p95 1.2 ms). At 650/week (650 × 52 / 12 ≈ 2,817 tickets/month) that is under 3 seconds of CPU a month.
 - **Optional local LLM** (`--llm`, qwen2.5:3b via Ollama, free): about 1.5 s per ticket, only for low-confidence tickets. The cost is still
   Rs 0 (electricity only), but it is *less* accurate on those tickets (69% vs 88%), so it's off by default. See `docs/LLM_DECISION.md`.
@@ -34,8 +34,9 @@ Three checks (full detail in `out/evaluation.md` after a run):
    AI agrees on **100.0%** (1 disagreement); the bot's tag agrees on **70.5%**. Owning team: AI 100.0% vs bot 82.7%.
 2. **Unseen phrasings: the honest number.** Test 1 is saturated because the same phrasings appear in train and test.
    So whole phrasings (167 of them, 7,348 tickets) are held out, and the model is scored only on wordings it never saw:
-   **88.6%**, or **78.1%** with live-chat noise (typos, dropped words, cut-off messages). If the least certain ~11%
-   go to a person first, it is **93.0%** right on the rest. This is my best estimate for live messages.
+   **89.0%** (range 86.7–90.4% across 3 different splits), or **78.1%** (76.5–79.1%) with live-chat noise
+   (typos, dropped words, cut-off messages). If the least certain ~12% go to a person first, it is **93.7%** right
+   on the rest. This is my best estimate for live messages.
 3. **Random audit of 150 tickets.** Each judged from both the message and the note. AI **150/150**
    (95% CI 97.5–100%). The note-reading rules 142/150: the 8 misses are notes like "sorted" that
    say nothing. Bot tag **101/150 (67%)**.
@@ -69,7 +70,7 @@ Yes, from the first hour of looking at the data:
 
 - **The audit labels are AI-made** (Claude reading message + note), not human-verified.
 - **Evaluation leakage.** The note-label rules were fixed after seeing test-period errors, so the out-of-time number is optimistic.
-  The model itself was chosen on the unseen-phrasing test, and I looked at that test's errors, so 88.6% is slightly optimistic too.
+  The model itself was chosen on the unseen-phrasing test, and I looked at that test's errors, so 89.0% is slightly optimistic too.
   The audit was never used for any choice.
 - **Real accuracy on live messages is unknown.** The best estimate is about 89% (78% with noise), but that comes from rewording this export,
   not from real tickets. A few hundred hand-labelled live tickets are needed.
@@ -81,7 +82,8 @@ Yes, from the first hour of looking at the data:
 - **Only transfers and SLA credits are costed.** CSAT damage (2.3 vs 3.1) and slower resolution are
   reported but not priced, so the saving is understated. Agent time inside the Rs 305 transfer cost may overlap.
 - **Workload per agent uses today's roster for every month.** The roster has no end dates, so leavers and joiners aren't modelled.
-- **No unit tests.** Correctness is checked by the evaluation, not by a test suite.
+- **Tests run on macOS only** (M1, 8 GB, Python 3.12). 84 tests: 77 on synthetic data and 7 on the real pack (`docs/TESTING.md`).
+  Not tested: Linux or Windows, browser rendering of the report beyond its content, and real live tickets.
 - **The report loads Plotly from a CDN**, so it needs internet to render. Light mode only.
 - **Resolution-time medians exclude open and pending tickets** (no resolved_at).
 - Legacy money units and cross-system duplicates were checked and not found in Set E. The checks stay in `--audit`, but no dedupe step runs.
@@ -142,7 +144,7 @@ UTC timestamp issue and the out-of-window Billing tickets; writing and fixing th
 - A 12-colour stacked category chart. Replaced with small multiples, since 12 hues can't be told apart.
 - 25 of 26 classifier candidates (`docs/MODEL_IMPROVEMENT.md`), including noise augmentation (it hurt),
   text normalisation (no gain) and calibrated probabilities (cost 1 point). Kept: a linear SVM trained on
-  messages plus training tickets' notes, which took unseen-phrasing accuracy from 80.5% to 88.6%.
+  messages plus training tickets' notes, which took unseen-phrasing accuracy from 80.5% to about 89%.
 
 **Screen recording:** [FILL IN — link]
 

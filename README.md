@@ -11,7 +11,7 @@ first-response SLA 4x as often, and score 0.8 lower on CSAT.
 
 ## Run it
 
-Needs Python 3.10+. No API key, no paid calls, no LLM. About 50 seconds and 0.63 GB of RAM on an 8 GB laptop.
+Needs Python 3.10+. No API key, no paid calls, no LLM. About 80 seconds and 0.7 GB of RAM on an 8 GB laptop.
 
 ```bash
 git clone <this repo> && cd vireo-support
@@ -28,6 +28,7 @@ data/tickets.csv  data/agents.csv  data/products.csv  (orders, customers not nee
 ```bash
 python run.py            # full pipeline -> out/report.html
 python run.py --audit    # print the evidence for each data fix
+python run.py --data other/ --start 2026-07-01 --end 2027-01-01   # a different export: give its window
 python run.py --llm        # optional: re-check low-confidence tickets with a free local LLM (see below)
 python run.py --benchmark  # optional: measure local LLMs against the default model
 ```
@@ -62,6 +63,16 @@ tickets.csv ─► load.py        data fixes (UTC legacy timestamps, out-of-wind
 Categories are Vireo's own 11, plus **Order Changes** (cancel, address or pincode change,
 dispatch status). The bot files these under "Other".
 
+## Tests
+
+```bash
+pip install -r requirements-dev.txt
+pytest            # 77 fast tests on synthetic data (~45 s)
+pytest -m slow    # 7 regression + resource tests on the real pack (~90 s)
+```
+
+What's covered and what testing found: `docs/TESTING.md`.
+
 ## Optional experiment: free local LLM (not recommended)
 
 Measured on this data it is less accurate than the default model and ~1,000x slower (`docs/LLM_DECISION.md`). It is kept only so the result can be reproduced. It runs on your machine through [Ollama](https://ollama.com), with no API key and no cost. On 8 GB of RAM, use a 3B model: models over 35% of RAM are refused, and the model is unloaded after the run.
@@ -84,6 +95,7 @@ Use `VIREO_LLM_MODEL=<name>` to try another model. See `docs/LLM_DECISION.md` fo
 - `docs/RECORDING.md` — script for the 3-minute screen recording
 - `docs/LLM_DECISION.md` — local LLM vs the default model: measured accuracy, latency, memory
 - `docs/MODEL_IMPROVEMENT.md` — the harder test, the 26 candidates tried, and why the current model won
+- `docs/TESTING.md` — the test suite, and the 12 problems it found
 
 ## Data
 

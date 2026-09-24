@@ -41,7 +41,7 @@ below 19%, Python peaked at 0.4 GB, and the model was unloaded straight after.
 
 ## Decision
 
-- The normal run (`python run.py`) uses no LLM. It takes about 0.63 GB of RAM and about 50 s for all 18 months, and it
+- The normal run (`python run.py`) uses no LLM. It takes about 0.7 GB of RAM and about 80 s for all 18 months, and it
   would take about 0.9 ms per ticket at intake.
 - `--llm` stays as a documented, off-by-default experiment. It is free, but on this data it makes the
   uncertain tickets worse (69% vs 88%).

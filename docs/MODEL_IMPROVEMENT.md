@@ -37,6 +37,10 @@ All model choices were made on this test. The 150-ticket audit was not used for 
 | **Linear SVM + balanced + training tickets' agent notes as extra text** | **88.6%** | **78.1%** | **adopted** |
 | … same, C=0.25 / C=1 / char 2–6 | 88.3% / 88.3% / 88.5% | 78.2% / 77.9% / 78.0% | no difference |
 
+All rows above use one fixed split. Testing later showed that the split alone moves the score by 1–2 points, so the
+pipeline now repeats the test over 3 shuffled splits: the adopted model scores **89.0% (range 86.7–90.4%)**, and
+**78.1% (76.5–79.1%)** with noise. Differences of under about 2 points between rows above are within that noise.
+
 ## Why the notes help
 
 The remaining errors were vocabulary gaps. "Card charged two times" was read as *Charging & Battery*
@@ -66,21 +70,21 @@ On unseen phrasings:
 | 20% | 95.5% |
 | 30% | 96.8% |
 
-The pipeline flags margin < 0.2, which is about 11% of unseen-phrasing tickets, with **93.0%** accuracy on
-the rest. On the export itself only 4 tickets fall below it, because their phrasings were seen in training.
+The table above is from one split. The pipeline flags margin < 0.2; over its 3 repeated splits that is about 12% of
+unseen-phrasing tickets, with **93.7%** accuracy on the rest. On the export itself only 4 tickets fall below it, because their phrasings were seen in training.
 For live use this is the lever: auto-route the confident ones, and send the rest to frontline triage as today.
 
 ## Result
 
 | | First model | Current model |
 |---|---|---|
-| Unseen phrasings | 80.5% | **88.6%** |
-| Unseen phrasings + noise | 69.5% | **78.1%** |
-| Confident tickets (flag the least certain ~11%) | — | **93.0%** |
+| Unseen phrasings (single split / mean of 3) | 80.5% | **88.6% / 89.0% (86.7–90.4%)** |
+| Unseen phrasings + noise | 69.5% | **78.1% (76.5–79.1%)** |
+| Confident tickets (flag the least certain ~12%) | — | **93.7%** |
 | Out-of-time test (Apr–Jun 2026) | 99.9% | 100.0% (1 disagreement) |
 | 150-ticket audit (never used for choices) | 150/150 | 150/150 |
 | Per ticket at intake | 1.4 ms | 0.9 ms |
-| Full run, 18 months | ~40 s, 0.4 GB | ~50 s, 0.63 GB |
+| Full run, 18 months | ~40 s, 0.4 GB | ~80 s, 0.7 GB (the hard test now runs 3 times) |
 
 The business numbers didn't move: Billing is 14.0% by real need and Logistics 26.0%, and 16.8% of tickets are misrouted.
 The first model already categorised this export correctly. The gain is in how it would cope with new wordings.
