@@ -53,5 +53,10 @@ Two cautions. First, your exported messages are very consistent, and live messag
 We'd expect a few percent of errors, so we'd re-check 50 tickets a month. Second, that 150-ticket check was done on our side
 with AI assistance, so a Vireo team lead should spot-check it before you decide.
 
-**What this doesn't cover:** shift-by-shift staffing, product defects driving volume, and refund
-policy checks. We saw leads in each (listed in our notes) but they don't change the headcount answer.
+**One thing for Arjun, found on the way:** 74 orders received both a refund and a replacement,
+which your policy says should never happen. About 40 look like genuine double payouts (the refund
+code says the customer was refunded for a return, dead-on-arrival or lost parcel, and a replacement
+also went out). We haven't verified these; Finance should look at the list.
+
+**What this doesn't cover:** shift-by-shift staffing and product-defect analysis. A quick look found
+no clear signal in either, and neither changes the headcount answer.
