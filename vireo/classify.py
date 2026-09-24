@@ -210,10 +210,14 @@ def llm_review(t: pd.DataFrame, threshold=LOW_CONFIDENCE, model: str = LLM_MODEL
     t = t.copy()
     t["llm_category"] = None
     idx = t.index[t.ai_confidence < threshold]
-    seconds = []
+    seconds, failed = [], 0
     try:
         for i in idx:
-            category, secs = ask_llm(t.at[i, "customer_message"], model)
+            try:
+                category, secs = ask_llm(t.at[i, "customer_message"], model)
+            except OSError:  # HTTP error, timeout, connection dropped: keep the fast model's answer
+                failed += 1
+                continue
             seconds.append(secs)
             t.at[i, "llm_category"] = category
     finally:
@@ -222,5 +226,6 @@ def llm_review(t: pd.DataFrame, threshold=LOW_CONFIDENCE, model: str = LLM_MODEL
     changed = int((t.loc[reviewed, "llm_category"] != t.loc[reviewed, "ai_category"]).sum())
     t.loc[reviewed, "ai_category"] = t.loc[reviewed, "llm_category"]
     usage = {"model": model, "tickets_sent": len(idx), "tickets_reviewed": int(reviewed.sum()), "changed": changed,
+             "failed": failed,
              "median_seconds": round(float(np.median(seconds)), 2) if seconds else 0.0, "cost": "free (local)"}
     return t, usage
