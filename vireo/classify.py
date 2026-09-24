@@ -50,7 +50,7 @@ def build_model():
         TfidfVectorizer(ngram_range=(1, 2), min_df=2, sublinear_tf=True),
         TfidfVectorizer(analyzer="char_wb", ngram_range=(3, 5), min_df=3, sublinear_tf=True),
     )
-    return make_pipeline(features, LinearSVC(C=0.5, class_weight="balanced"))
+    return make_pipeline(features, LinearSVC(C=0.5, class_weight="balanced", random_state=0))
 
 
 def fit_model(train: pd.DataFrame):
