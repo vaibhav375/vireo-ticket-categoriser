@@ -11,7 +11,7 @@ first-response SLA 4x as often, and score 0.8 lower on CSAT.
 
 ## Run it
 
-Needs Python 3.10+. No API key, no paid calls, no LLM. About 40 seconds and 0.4 GB of RAM on an 8 GB laptop.
+Needs Python 3.10+. No API key, no paid calls, no LLM. About 50 seconds and 0.63 GB of RAM on an 8 GB laptop.
 
 ```bash
 git clone <this repo> && cd vireo-support
@@ -50,8 +50,10 @@ Open `out/report.html` in a browser (it loads Plotly from a CDN, so it needs int
 tickets.csv ─► load.py        data fixes (UTC legacy timestamps, out-of-window rows, blank ≠ 0 transfers, agent_id joins)
             ─► labels.py      reference label from the agent's closing note (hindsight: what the ticket really was)
             ─► classify.py    model reads ONLY the customer's opening message (what the bot has at intake)
-                              TF-IDF words + char n-grams → logistic regression, out-of-fold predictions
-                              [--llm] low-confidence tickets (<0.6, about 0.3%) get a second opinion from a local LLM
+                              TF-IDF words + char n-grams → linear SVM, trained on messages + training tickets' notes
+                              out-of-fold predictions; confidence = margin between the top two categories
+                              [--llm] low-confidence tickets get a second opinion from a local LLM (experimental)
+            ─► robustness.py  harder test: phrasings the model never saw, clean and with live-chat noise
             ─► evaluate.py    out-of-time test + 150-ticket hand audit (eval/audit_labels.csv)
             ─► business_case.py  misroute rate, like-for-like cost, workload per agent
             ─► report.py      HTML + CSVs
@@ -81,6 +83,7 @@ Use `VIREO_LLM_MODEL=<name>` to try another model. See `docs/LLM_DECISION.md` fo
 - `docs/PLAN.md` — the plan as written at the start
 - `docs/RECORDING.md` — script for the 3-minute screen recording
 - `docs/LLM_DECISION.md` — local LLM vs the default model: measured accuracy, latency, memory
+- `docs/MODEL_IMPROVEMENT.md` — the harder test, the 26 candidates tried, and why the current model won
 
 ## Data
 

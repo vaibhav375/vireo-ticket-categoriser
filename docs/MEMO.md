@@ -46,11 +46,13 @@ That doesn't count the lower ratings.
 **How sure are we**
 
 We trained the tool on tickets up to March 2026 and tested it on April–June, which it had never
-seen. It agreed with the agents' own notes on 2,161 of 2,163 tickets. The bot's tag agreed on 71%.
+seen. It agreed with the agents' own notes on 2,162 of 2,163 tickets. The bot's tag agreed on 71%.
+The tougher test is how customers word a problem in ways the tool has never seen: it was right about
+9 times in 10. It can also tell when it's unsure. Sending that uncertain one-in-ten to a person makes it 93% right on the rest.
 We also judged a random 150 tickets from both the message and the agent's note. The tool matched on all 150; the bot's tag on 101.
 
-Two cautions. First, your exported messages are very consistent, and live messages will be messier.
-We'd expect a few percent of errors, so we'd re-check 50 tickets a month. Second, that 150-ticket check was done on our side
+Two cautions. First, your exported messages are very consistent, and live messages will be messier,
+so we'd re-check 50 tickets a month. Second, that 150-ticket check was done on our side
 with AI assistance, so a Vireo team lead should spot-check it before you decide.
 
 **One thing for Arjun, found on the way:** 74 orders received both a refund and a replacement,

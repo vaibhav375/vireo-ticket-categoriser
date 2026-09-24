@@ -24,6 +24,9 @@ customer actually needed: Billing drops from 21% to 14%, and Logistics rises fro
   I tuned that after seeing the test errors, so I lean on the 150-ticket audit, not the 99.9%."
 - "Cost per misroute: v1 compared misrouted tickets with all tickets. v2 compares like for like: a
   delivery ticket via Billing vs one sent straight to Logistics. 36% SLA breach vs 9%."
+- "The model: 99.9% looked perfect, but the test reused phrasings the model had seen. So I built a harder test that holds out
+  whole phrasings. The first model got 80%. I tried 26 variants; the winner is a linear SVM that also learns from the
+  agents' notes: 89%, and 93% on the tickets it's confident about." (show `docs/MODEL_IMPROVEMENT.md` table)
 - "The memo: v1 said the audit was 'by hand'. It was AI-labelled, so I corrected that. It also claimed leads in
   defects and shifts before I'd checked. I checked, found nothing, and cut them."
 
@@ -33,6 +36,6 @@ customer actually needed: Billing drops from 21% to 14%, and Logistics rises fro
   84–87% vs 100% for the plain model, and 1,000x slower. A 7B model even froze my laptop. So it's off by default."
 - "A 12-colour stacked chart. Nobody can tell 12 colours apart, so it became small multiples."
 
-**2:35–3:00 — Close** (terminal: `python run.py`, show it finish in ~40s)
-"One command, about 40 seconds, no paid calls, no LLM needed. The goal: cut wrong-team tickets from 17% to 5%, about Rs 1.5 lakh a quarter.
+**2:35–3:00 — Close** (terminal: `python run.py`, show it finish in ~50s)
+"One command, about 50 seconds, no paid calls, no LLM needed. The goal: cut wrong-team tickets from 17% to 5%, about Rs 1.5 lakh a quarter.
 Hold the hires eight weeks; if they're still needed, Logistics, not Billing."

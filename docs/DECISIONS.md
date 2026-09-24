@@ -68,7 +68,7 @@ Chat vs Email Frontline is decided by channel and shift, not topic. Counting cha
 as misroutes would inflate the problem.
 
 **14. No LLM in the normal run. A free local LLM is an off-by-default experiment.**
-TF-IDF + logistic regression is 99.9% on the out-of-time test, runs in about 40 s using 0.4 GB, costs nothing, and
+The offline model is 100% on the out-of-time test and 88.6% on unseen phrasings, runs in about 50 s using 0.63 GB, costs nothing, and
 runs on a clean machine without a key. The first version had a Claude API fallback. It was replaced with
 a free local model (Ollama) so there's no key and no cost, and then measured. On the tickets it would handle,
 qwen2.5:3b is 69% accurate against the fast model's 88%, and about 1,000x slower. On an 8 GB laptop a 7B
@@ -79,6 +79,13 @@ unload when done) and is not recommended. Full numbers: `docs/LLM_DECISION.md`.
 A delivery ticket sent to Billing is compared with a delivery ticket sent straight to Logistics, not
 with the average ticket. Otherwise delivery tickets' naturally longer resolution would be blamed on routing.
 Only transfers (Rs 305) and SLA credits (Rs 350) are costed; CSAT and resolution-time damage are reported, not priced.
+
+**17. Model chosen on a harder test, not the saturated one.**
+The standard tests were at ~100% because the same phrasings appear in train and test. So I built a test that
+holds out whole phrasings, plus live-chat noise, and chose the model on that alone. Winner: a linear SVM with
+balanced classes, trained on customer messages *plus the training tickets' agent notes* (80.5% → 88.6% on unseen
+phrasings). I deliberately did not hand-write keywords to fix the errors I'd seen, since that would be tuning on the
+test. The audit was never used for choices. Detail: `docs/MODEL_IMPROVEMENT.md`.
 
 **16. Repeat contacts not costed.**
 Policy §10 prices repeat contacts, but the repeat rate barely differs between misrouted and
