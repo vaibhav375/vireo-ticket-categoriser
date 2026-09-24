@@ -1,0 +1,13 @@
+# Client data pack is not committed. Copy it into data/ (see README).
+data/*
+!data/.gitkeep
+
+# Generated output
+out/*
+!out/.gitkeep
+
+__pycache__/
+*.pyc
+.venv/
+.env
+.DS_Store
