@@ -67,12 +67,13 @@ all frontline-owned. The other 11 categories keep Vireo's names so the charts co
 Chat vs Email Frontline is decided by channel and shift, not topic. Counting chat→email hand-offs
 as misroutes would inflate the problem.
 
-**14. Local model by default; the LLM is optional and only for low-confidence tickets.**
-TF-IDF + logistic regression is 99.9% on the out-of-time test, runs in 30s, costs nothing, and
-runs on a clean machine without a key. Sending all 650 tickets a week to an LLM would add cost and
-a dependency for no measurable gain on this data. The `--llm` path (Claude, low effort, structured output)
-reviews only tickets below 0.6 confidence (0.3%). It defaults to `claude-opus-5`; set
-`VIREO_LLM_MODEL=claude-haiku-4-5` for the cheapest option.
+**14. No LLM in the normal run. A free local LLM is an off-by-default experiment.**
+TF-IDF + logistic regression is 99.9% on the out-of-time test, runs in about 40 s using 0.4 GB, costs nothing, and
+runs on a clean machine without a key. The first version had a Claude API fallback. It was replaced with
+a free local model (Ollama) so there's no key and no cost, and then measured. On the tickets it would handle,
+qwen2.5:3b is 69% accurate against the fast model's 88%, and about 1,000x slower. On an 8 GB laptop a 7B
+model froze the machine. So `--llm` stays as a guarded experiment (size limit, one model at a time,
+unload when done) and is not recommended. Full numbers: `docs/LLM_DECISION.md`.
 
 **15. Cost per misroute is like for like.**
 A delivery ticket sent to Billing is compared with a delivery ticket sent straight to Logistics, not

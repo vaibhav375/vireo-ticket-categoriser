@@ -19,16 +19,12 @@ Today: 16.8% × 8,450 × Rs 148 = Rs 2.1 lakh/quarter. At 5%: (16.8% − 5%) × 
 
 ### What does one run cost, and what would a month cost at Vireo's volume (roughly 650 tickets a week)? *Show the arithmetic. If you used no paid calls, say so.*
 
-**Default run: Rs 0. No paid calls.** The classifier is a local scikit-learn model. A full run over
-18 months (11,641 tickets) takes about 30 seconds on a laptop. At 650/week (about 2,815/month) it is
-still Rs 0, just compute time.
-
-The optional `--llm` step sends only low-confidence tickets (0.27% of volume) to Claude. **I never
-ran it, because I had no API key**, so these are estimates, not measurements:
-- Per call: about 550 input tokens (category definitions + message) and about 300 output tokens (low-effort thinking + JSON).
-- `claude-opus-5` ($5 / $25 per M tokens): 550 × 5/1e6 + 300 × 25/1e6 ≈ **$0.010 per ticket**.
-- Per month: 2,815 × 0.27% ≈ 8 tickets × $0.010 ≈ **$0.08/month**.
-- Worst case, every ticket through Opus: 2,815 × $0.010 ≈ $29/month. With `claude-haiku-4-5` ($1 / $5): ≈ $0.002/ticket, about $6/month for every ticket.
+**Rs 0 per run and Rs 0 per month. No paid calls anywhere.** Measured on an M1 laptop with 8 GB of RAM:
+- **Full run** (18 months, 11,641 tickets, including training and 5-fold cross-validation): about 40 s, 0.33–0.40 GB peak RAM.
+- **Per ticket at intake:** 1.4 ms median. At 650/week (650 × 52 / 12 ≈ 2,817 tickets/month) that is about 4 seconds of CPU a month.
+- **Optional local LLM** (`--llm`, qwen2.5:3b via Ollama, free): about 1.5 s per ticket, sent only for the 0.27% of low-confidence tickets.
+  2,817 × 0.27% ≈ 8 tickets/month ≈ 12 s. The cost is still Rs 0 (electricity only), but it is *less* accurate on those tickets
+  (69% vs 88%), so it's off by default. See `docs/LLM_DECISION.md`.
 
 ### How do you know it works? *Sample size, how you checked, error rate, and the kind of case it gets wrong.*
 
@@ -69,8 +65,8 @@ Yes, from the first hour of looking at the data:
 
 - **The audit labels are AI-made** (Claude reading message + note), not human-verified.
 - **Evaluation leakage.** The note-label rules were fixed after seeing test-period errors, so 99.9% is optimistic.
-- **The `--llm` path has never been executed** (no API key). It follows the SDK docs, but it is untested.
-  Its default model (`claude-opus-5`) is overkill for classification; Haiku is probably enough.
+- **The `--llm` local-LLM path works but makes things worse** on the tickets it handles (69% vs 88%).
+  It's kept as a guarded experiment, not a feature. A 7B model froze an 8 GB laptop before memory guards were added.
 - **Misrouting is measured against the AI's own category.** Any AI error shows up as a false misroute or a missed one.
 - **Money scaled from about 180 tickets/week in the export to the stated 650/week.** If the export
   isn't a representative sample, the rupee figures move.
@@ -89,7 +85,8 @@ Yes, from the first hour of looking at the data:
 - **Shift and hour staffing model (Erlang etc.).** The export is about 28% of real volume, so absolute
   staffing numbers would be false precision. A quick check showed no big shift differences in chat breaches (11–14%).
 - **Product-defect / lot-code analysis.** A quick look found no lot with a meaningful excess of hardware tickets.
-- **Sending every ticket to an LLM.** It would add cost and a dependency for no measurable gain on this data.
+- **An LLM in the main path.** Measured: free local 3B–7B models were 84–87% accurate on the audit vs 100%
+  for the fast model, and 1,000–9,000x slower (`docs/LLM_DECISION.md`).
 - **A dashboard or web app.** A static report answers the question; a small thing that runs beat a large thing.
 
 I chose these because none of them changes the headcount answer, which is the decision on the table.
@@ -107,8 +104,9 @@ I chose these because none of them changes the headcount answer, which is the de
 
 ### What did you use AI for? *Which tools and models, where they helped, where they wasted your time, what you threw away. Link your three-minute screen recording here.*
 
-**Tool:** Claude Code (desktop app), model Claude Opus 5.5, for nearly everything: profiling the
-data, writing the Python, drafting docs, and labelling the 150-ticket audit sample. No other AI tools.
+**Tools:** Claude Code (desktop app), model Claude Opus 5.5, for nearly everything: profiling the
+data, writing the Python, drafting docs, and labelling the 150-ticket audit sample. Local open models
+through Ollama (qwen2.5:3b, llama3.2:3b, qwen2.5:7b), benchmarked as a free LLM option.
 No paid API calls from the tool itself.
 **Cost:** [FILL IN — your Claude plan / usage for this session].
 
@@ -123,12 +121,16 @@ UTC timestamp issue and the out-of-window Billing tickets; writing and fixing th
 - The first memo draft said the audit was done "by hand". It was AI-labelled, so the wording was corrected.
 - The first memo draft claimed "leads" in defects and shifts before checking. Checked, found nothing, removed.
 - The in-app browser wouldn't render the report, so it switched to a headless Chrome screenshot.
+- The local-LLM benchmark left a 7B model in memory, and the next run froze the 8 GB laptop.
+  Fixed with a model-size guard, one model at a time, and an explicit unload.
 
 **Thrown away:**
 - "Misrouted = resolving team ≠ assigned team". Noisy, because Billing agents resolve some delivery tickets
   themselves and frontline teams swap by shift. Replaced with real category vs bot tag.
 - A first cost-per-misroute that compared misrouted tickets with *all* tickets. Replaced with a like-for-like comparison.
 - An LLM-for-every-ticket design. The local model was already 99%+, so the LLM became an optional low-confidence fallback.
+- The Claude API fallback (needed a key and was never run). Replaced with a free local LLM, which was
+  then measured and found worse than the fast model, so it's off by default.
 - A 12-colour stacked category chart. Replaced with small multiples, since 12 hues can't be told apart.
 
 **Screen recording:** [FILL IN — link]

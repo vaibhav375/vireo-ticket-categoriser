@@ -13,9 +13,9 @@ customer actually needed: Billing drops from 21% to 14%, and Logistics rises fro
   and commit each step." (scroll the first message)
 - "The first thing it did was profile the data. That's where the pattern showed: 31% of Billing tickets were
   closed by Logistics agents."
-- "The only prompt inside the tool is this one: the optional Claude step for low-confidence tickets. It lists
+- "The only prompt inside the tool is this one: the optional local-LLM step for low-confidence tickets. It lists
   the categories and has one explicit rule: paid-but-not-arrived is Delivery, not Billing. The output is
-  constrained to the category list."
+  constrained to the category list with a JSON schema." (show `docs/LLM_DECISION.md` table)
 
 **1:05–1:55 — What changed between versions** (show `git log --oneline`, then `out/evaluation.md`)
 - "Version 1 of the labelling took the first keyword in the agent's note. The out-of-time test showed
@@ -29,10 +29,10 @@ customer actually needed: Billing drops from 21% to 14%, and Logistics rises fro
 
 **1:55–2:35 — What I threw away** (show `docs/submission-form.md` → "Thrown away")
 - "Misroute = resolving team ≠ assigned team. Too noisy: Billing agents resolve some delivery tickets themselves."
-- "An LLM on every ticket. The local model was already 99%, so Claude is only an optional fallback for 0.3% of tickets.
-  I never ran it; there was no API key."
+- "The LLM. First a Claude API fallback, then a free local model through Ollama. I benchmarked three local models:
+  84–87% vs 100% for the plain model, and 1,000x slower. A 7B model even froze my laptop. So it's off by default."
 - "A 12-colour stacked chart. Nobody can tell 12 colours apart, so it became small multiples."
 
-**2:35–3:00 — Close** (terminal: `python run.py`, show it finish in ~30s)
-"One command, about 30 seconds, no paid calls. The goal: cut wrong-team tickets from 17% to 5%, about Rs 1.5 lakh a quarter.
+**2:35–3:00 — Close** (terminal: `python run.py`, show it finish in ~40s)
+"One command, about 40 seconds, no paid calls, no LLM needed. The goal: cut wrong-team tickets from 17% to 5%, about Rs 1.5 lakh a quarter.
 Hold the hires eight weeks; if they're still needed, Logistics, not Billing."

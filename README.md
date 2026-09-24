@@ -11,7 +11,7 @@ first-response SLA 4x as often, and score 0.8 lower on CSAT.
 
 ## Run it
 
-Needs Python 3.10+. No API key, no paid calls, about 30 seconds on a laptop.
+Needs Python 3.10+. No API key, no paid calls, no LLM. About 40 seconds and 0.4 GB of RAM on an 8 GB laptop.
 
 ```bash
 git clone <this repo> && cd vireo-support
@@ -28,7 +28,8 @@ data/tickets.csv  data/agents.csv  data/products.csv  (orders, customers not nee
 ```bash
 python run.py            # full pipeline -> out/report.html
 python run.py --audit    # print the evidence for each data fix
-python run.py --llm      # optional: re-check low-confidence tickets with Claude (needs ANTHROPIC_API_KEY)
+python run.py --llm        # optional: re-check low-confidence tickets with a free local LLM (see below)
+python run.py --benchmark  # optional: measure local LLMs against the default model
 ```
 
 Open `out/report.html` in a browser (it loads Plotly from a CDN, so it needs internet).
@@ -50,7 +51,7 @@ tickets.csv ─► load.py        data fixes (UTC legacy timestamps, out-of-wind
             ─► labels.py      reference label from the agent's closing note (hindsight: what the ticket really was)
             ─► classify.py    model reads ONLY the customer's opening message (what the bot has at intake)
                               TF-IDF words + char n-grams → logistic regression, out-of-fold predictions
-                              [--llm] low-confidence tickets (<0.6, about 0.3%) get a Claude second opinion
+                              [--llm] low-confidence tickets (<0.6, about 0.3%) get a second opinion from a local LLM
             ─► evaluate.py    out-of-time test + 150-ticket hand audit (eval/audit_labels.csv)
             ─► business_case.py  misroute rate, like-for-like cost, workload per agent
             ─► report.py      HTML + CSVs
@@ -59,6 +60,19 @@ tickets.csv ─► load.py        data fixes (UTC legacy timestamps, out-of-wind
 Categories are Vireo's own 11, plus **Order Changes** (cancel, address or pincode change,
 dispatch status). The bot files these under "Other".
 
+## Optional experiment: free local LLM (not recommended)
+
+Measured on this data it is less accurate than the default model and ~1,000x slower (`docs/LLM_DECISION.md`). It is kept only so the result can be reproduced. It runs on your machine through [Ollama](https://ollama.com), with no API key and no cost. On 8 GB of RAM, use a 3B model: models over 35% of RAM are refused, and the model is unloaded after the run.
+
+```bash
+brew install ollama          # or the installer from ollama.com
+ollama serve &               # starts the local server on port 11434
+ollama pull qwen2.5:3b       # ~1.9 GB, once
+python run.py --llm
+```
+
+Use `VIREO_LLM_MODEL=<name>` to try another model. See `docs/LLM_DECISION.md` for the measured results.
+
 ## Docs
 
 - `docs/MEMO.md` — one-page memo to Priya Raman
@@ -66,6 +80,7 @@ dispatch status). The bot files these under "Other".
 - `docs/submission-form.md` — the completed submission form
 - `docs/PLAN.md` — the plan as written at the start
 - `docs/RECORDING.md` — script for the 3-minute screen recording
+- `docs/LLM_DECISION.md` — local LLM vs the default model: measured accuracy, latency, memory
 
 ## Data
 
