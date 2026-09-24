@@ -33,7 +33,7 @@ Three checks (full detail in `out/evaluation.md` after a run):
    the model never saw. The truth is the category written in the agent's closing note.
    AI agrees on **100.0%** (1 disagreement); the bot's tag agrees on **70.5%**. Owning team: AI 100.0% vs bot 82.7%.
 2. **Unseen phrasings: the honest number.** Test 1 is saturated because the same phrasings appear in train and test.
-   So whole phrasings (167 of them, 7,348 tickets) are held out, and the model is scored only on wordings it never saw:
+   So whole phrasings (167 of them, 7,349 tickets) are held out, and the model is scored only on wordings it never saw:
    **89.0%** (range 86.7–90.4% across 3 different splits), or **78.1%** (76.5–79.1%) with live-chat noise
    (typos, dropped words, cut-off messages). If the least certain ~12% go to a person first, it is **93.7%** right
    on the rest. This is my best estimate for live messages.
