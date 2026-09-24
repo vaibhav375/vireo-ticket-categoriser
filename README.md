@@ -67,8 +67,8 @@ dispatch status). The bot files these under "Other".
 
 ```bash
 pip install -r requirements-dev.txt
-pytest            # 77 fast tests on synthetic data (~45 s)
-pytest -m slow    # 7 regression + resource tests on the real pack (~90 s)
+python -m pytest            # 77 fast tests on synthetic data (~45 s)
+python -m pytest -m slow    # 7 regression + resource tests on the real pack (~90 s)
 ```
 
 What's covered and what testing found: `docs/TESTING.md`.

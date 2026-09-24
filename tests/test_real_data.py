@@ -1,4 +1,4 @@
-"""Regression + resource tests on the real Set E pack (skipped if data/ is empty). Run: pytest -m slow
+"""Regression + resource tests on the real Set E pack (skipped if data/ is empty). Run: python -m pytest -m slow
 
 The expected numbers were checked by hand earlier in the project and appear in docs/MEMO.md and
 docs/submission-form.md. If one moves, either a bug crept in or the docs are now wrong.

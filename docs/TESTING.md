@@ -2,9 +2,12 @@
 
 ```bash
 pip install -r requirements-dev.txt
-pytest              # 77 fast tests, ~45 s, synthetic data only (no client data needed)
-pytest -m slow      # 7 regression + resource tests on the real pack in data/ (~90 s)
+python -m pytest              # 77 fast tests, ~45 s, synthetic data only (no client data needed)
+python -m pytest -m slow      # 7 regression + resource tests on the real pack in data/ (~90 s)
 ```
+
+Use `python -m pytest`, not bare `pytest`: a `pytest` launcher left over from another Python install
+(this happened on the development machine) runs the wrong interpreter and reports `No module named 'pytest'`.
 
 Every test was written before the fix it guards, and watched failing first. For the core data fixes,
 the code was also deliberately broken (UTC shift removed, issue-marker rule removed, roster dates
