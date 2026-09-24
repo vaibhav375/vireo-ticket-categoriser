@@ -1,7 +1,8 @@
 """Run the whole pipeline: load -> label -> categorise -> evaluate -> business case -> report.
 
     python run.py                 # offline, free
-    python run.py --llm           # also re-check low-confidence tickets with Claude (needs ANTHROPIC_API_KEY)
+    python run.py --llm           # experimental: re-check low-confidence tickets with a local LLM (Ollama)
+    python run.py --benchmark     # measure local LLMs vs the default model: accuracy + latency
     python run.py --audit         # print the data-fix evidence and exit
 """
 import argparse
@@ -22,7 +23,9 @@ def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--data", default="data", help="folder with the Vireo data pack")
     p.add_argument("--out", default="out")
-    p.add_argument("--llm", action="store_true", help="re-check low-confidence tickets with Claude")
+    p.add_argument("--llm", action="store_true", help="re-check low-confidence tickets with a local Ollama model")
+    p.add_argument("--benchmark", nargs="*", metavar="MODEL",
+                   help="benchmark Ollama models (default: qwen2.5:3b llama3.2:3b) and exit")
     p.add_argument("--audit", action="store_true", help="print data-fix evidence and exit")
     a = p.parse_args()
 
@@ -30,11 +33,18 @@ def main():
         audit(a.data)
         return
 
+    Path(a.out).mkdir(parents=True, exist_ok=True)
     t0 = time.time()
     t = add_reference_labels(load(a.data))
     print(f"Loaded {len(t):,} tickets (Jan 2025 – Jun 2026, data fixes applied)")
     t, _ = categorise(t)
     print(f"Categorised; {(t.ai_confidence < 0.6).sum()} low-confidence tickets")
+
+    if a.benchmark is not None:
+        from vireo import benchmark
+        res = benchmark.run(t, a.benchmark or ["qwen2.5:3b", "llama3.2:3b"], f"{a.out}/llm_benchmark.md")
+        print(res.to_string(index=False))
+        return
 
     usage = None
     if a.llm:

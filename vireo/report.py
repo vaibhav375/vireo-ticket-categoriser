@@ -95,8 +95,8 @@ def write(t, s, shares, by_route, workload, eval_res, audit_res, out="out", llm_
     audit_line = (f"On a hand-checked random sample of {a['audited_tickets']} tickets the AI category was right "
                   f"{a['ai_correct']}/{a['audited_tickets']}; the bot's tag {a['bot_tag_correct']}/{a['audited_tickets']}."
                   if a else "Hand audit not available.")
-    llm_line = (f"<p>LLM review: {llm_usage['tickets_reviewed']} low-confidence tickets re-checked with {llm_usage['model']}, "
-                f"cost ${llm_usage['cost_usd']}.</p>" if llm_usage else "")
+    llm_line = (f"<p>Local LLM review: {llm_usage['tickets_reviewed']} low-confidence tickets re-checked with "
+                f"{llm_usage['model']} (free, on this machine); it changed {llm_usage['changed']} of them.</p>" if llm_usage else "")
 
     page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">

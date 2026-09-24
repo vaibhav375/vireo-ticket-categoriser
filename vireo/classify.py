@@ -7,10 +7,12 @@ Two stages:
 1. Local model (default, free, offline): TF-IDF on words + character n-grams (the messages
    are full of typos) -> logistic regression.
 2. Optional LLM second opinion (--llm): only tickets where the local model's confidence is
-   below a threshold go to Claude with the category definitions. Needs ANTHROPIC_API_KEY.
+   below a threshold go to a small open model running locally in Ollama. Free, offline, no key.
 """
 import json
 import os
+import time
+import urllib.request
 
 import numpy as np
 import pandas as pd
@@ -68,11 +70,19 @@ def _assign(t, idx, model, X):
     t.loc[idx, "ai_confidence"] = proba.max(1)
 
 
-# ---------------------------------------------------------------- optional LLM stage
+# ---------------------------------------------------------------- optional local LLM stage
+# Experimental, off by default. A small open model served by Ollama on the same machine (no API
+# key, no per-call cost). Measured on this data it is LESS accurate than the fast model and
+# ~1,000x slower (docs/LLM_DECISION.md), so the normal run never uses it.
+#
+# Memory safety: Ollama keeps a model in RAM for 5 minutes by default. On an 8 GB laptop two
+# loaded models plus the pipeline froze the machine. So: refuse models too large for this
+# machine, keep a model loaded only briefly, and always unload it when done.
 
-LLM_MODEL = os.environ.get("VIREO_LLM_MODEL", "claude-opus-5")
-# USD per million tokens (input, output), Anthropic list prices
-PRICES = {"claude-opus-5": (5.0, 25.0), "claude-sonnet-5": (2.0, 10.0), "claude-haiku-4-5": (1.0, 5.0)}
+OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
+LLM_MODEL = os.environ.get("VIREO_LLM_MODEL", "qwen2.5:3b")
+MAX_MODEL_SHARE_OF_RAM = 0.35  # leave room for macOS, the browser and the pipeline (~0.4 GB)
+KEEP_ALIVE = "30s"  # Ollama default is 5 minutes
 
 SYSTEM_PROMPT = """You route customer-support tickets for Vireo Audio, an Indian consumer-audio brand
 (earbuds, headphones, speakers, smartwatches). Read the customer's opening message and pick the ONE
@@ -98,50 +108,87 @@ SCHEMA = {
     "type": "object",
     "properties": {"category": {"type": "string", "enum": CATEGORIES}},
     "required": ["category"],
-    "additionalProperties": False,
 }
 
 
-def llm_review(t: pd.DataFrame, threshold=LOW_CONFIDENCE, limit=None):
-    """Send low-confidence tickets to Claude. Returns (tickets, usage summary)."""
-    import anthropic  # optional dependency
+def ask_llm(message: str, model: str = LLM_MODEL, timeout=120):
+    """Classify one message with a local Ollama model. Returns (category or None, seconds)."""
+    body = json.dumps({
+        "model": model, "stream": False, "format": SCHEMA, "keep_alive": KEEP_ALIVE,
+        "options": {"temperature": 0},
+        "messages": [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": message}],
+    }).encode()
+    req = urllib.request.Request(f"{OLLAMA_URL}/api/chat", data=body, headers={"Content-Type": "application/json"})
+    start = time.perf_counter()
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        reply = json.loads(r.read())
+    elapsed = time.perf_counter() - start
+    try:
+        category = json.loads(reply["message"]["content"])["category"]
+    except (KeyError, ValueError):
+        return None, elapsed
+    return (category if category in CATEGORIES else None), elapsed
 
-    client = anthropic.Anthropic()
-    idx = t.index[t.ai_confidence < threshold]
-    if limit:
-        idx = idx[:limit]
+
+def _ollama(path, payload=None, timeout=5):
+    data = json.dumps(payload).encode() if payload is not None else None
+    req = urllib.request.Request(f"{OLLAMA_URL}{path}", data=data, headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return json.loads(r.read())
+
+
+def _ram_bytes():
+    return os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")
+
+
+def check_llm(model: str = LLM_MODEL):
+    """Return None if the model is safe to use here, else the reason it isn't."""
+    try:
+        models = {m["name"]: m["size"] for m in _ollama("/api/tags")["models"]}
+    except OSError:
+        return "Ollama isn't running. Start it with: ollama serve"
+    if model not in models:
+        return f"{model} isn't pulled. Run: ollama pull {model}"
+    limit = MAX_MODEL_SHARE_OF_RAM * _ram_bytes()
+    if models[model] > limit:
+        return (f"{model} is {models[model] / 1e9:.1f} GB; this machine allows up to {limit / 1e9:.1f} GB "
+                f"({MAX_MODEL_SHARE_OF_RAM:.0%} of RAM). Use a smaller model, e.g. qwen2.5:3b.")
+    try:
+        loaded = [m["name"] for m in _ollama("/api/ps")["models"] if m["name"] != model]
+    except OSError:
+        loaded = []
+    for other in loaded:  # only one model in memory at a time
+        unload_llm(other)
+    return None
+
+
+def unload_llm(model: str = LLM_MODEL):
+    """Free the model's memory now instead of after Ollama's keep-alive timeout."""
+    try:
+        _ollama("/api/generate", {"model": model, "keep_alive": 0}, timeout=30)
+    except OSError:
+        pass
+
+
+def llm_review(t: pd.DataFrame, threshold=LOW_CONFIDENCE, model: str = LLM_MODEL):
+    """Send low-confidence tickets to the local LLM; its answer replaces the model's. Returns (tickets, usage)."""
+    problem = check_llm(model)
+    if problem:
+        raise SystemExit(problem)
     t = t.copy()
     t["llm_category"] = None
-    tokens_in = tokens_out = 0
-    for i in idx:
-        try:
-            r = client.messages.create(
-                model=LLM_MODEL,
-                max_tokens=2000,
-                system=SYSTEM_PROMPT,
-                output_config={"effort": "low", "format": {"type": "json_schema", "schema": SCHEMA}},
-                messages=[{"role": "user", "content": t.at[i, "customer_message"]}],
-            )
-        except anthropic.RateLimitError:
-            print("Rate limited; stopping LLM review early.")
-            break
-        except anthropic.APIStatusError as e:
-            print(f"{t.at[i, 'ticket_id']}: API error {e.status_code}, skipped")
-            continue
-        tokens_in += r.usage.input_tokens
-        tokens_out += r.usage.output_tokens
-        if r.stop_reason == "refusal":
-            continue
-        text = next((b.text for b in r.content if b.type == "text"), None)
-        if text:
-            t.at[i, "llm_category"] = json.loads(text)["category"]
-
+    idx = t.index[t.ai_confidence < threshold]
+    seconds = []
+    try:
+        for i in idx:
+            category, secs = ask_llm(t.at[i, "customer_message"], model)
+            seconds.append(secs)
+            t.at[i, "llm_category"] = category
+    finally:
+        unload_llm(model)
     reviewed = t.llm_category.notna()
+    changed = int((t.loc[reviewed, "llm_category"] != t.loc[reviewed, "ai_category"]).sum())
     t.loc[reviewed, "ai_category"] = t.loc[reviewed, "llm_category"]
-    p_in, p_out = PRICES.get(LLM_MODEL, (np.nan, np.nan))
-    usage = {
-        "model": LLM_MODEL, "tickets_sent": len(idx), "tickets_reviewed": int(reviewed.sum()),
-        "input_tokens": tokens_in, "output_tokens": tokens_out,
-        "cost_usd": round(tokens_in / 1e6 * p_in + tokens_out / 1e6 * p_out, 4),
-    }
+    usage = {"model": model, "tickets_sent": len(idx), "tickets_reviewed": int(reviewed.sum()), "changed": changed,
+             "median_seconds": round(float(np.median(seconds)), 2) if seconds else 0.0, "cost": "free (local)"}
     return t, usage
