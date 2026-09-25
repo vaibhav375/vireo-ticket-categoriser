@@ -1,6 +1,6 @@
 """Is a local LLM worth adding? Measure it rather than assume.
 
-For each Ollama model: accuracy and latency on the 150 hand-audited tickets (known answers),
+For each Ollama model: accuracy and latency on the 150 audited tickets (labels made with AI help),
 and on the tickets the fast model is unsure about (the only ones --llm would send).
 The fast TF-IDF model is timed the same way for comparison.
 """

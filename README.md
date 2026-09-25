@@ -40,7 +40,7 @@ Open `out/report.html` in a browser (it loads Plotly from a CDN, so it needs int
 | File | What it is |
 |---|---|
 | `out/report.html` | The chart Priya asked for, drawn two ways, plus misroute cost and workload per agent |
-| `out/evaluation.md` | Out-of-time accuracy, confusion matrix, every disagreement, hand-audit results |
+| `out/evaluation.md` | Out-of-time accuracy, confusion matrix, every disagreement, audit results |
 | `out/tickets_categorised.csv` | One row per ticket: bot tag, AI category, confidence, owning team both ways, misrouted flag |
 | `out/refund_and_replacement.csv` | Orders that got both a refund and a replacement (policy §5 says never both), for Finance |
 | `out/monthly_by_category.csv`, `out/monthly_by_team.csv` | The chart data |
@@ -55,7 +55,7 @@ tickets.csv ─► load.py        data fixes (UTC legacy timestamps, out-of-wind
                               out-of-fold predictions; confidence = margin between the top two categories
                               [--llm] low-confidence tickets get a second opinion from a local LLM (experimental)
             ─► robustness.py  harder test: phrasings the model never saw, clean and with live-chat noise
-            ─► evaluate.py    out-of-time test + 150-ticket hand audit (eval/audit_labels.csv)
+            ─► evaluate.py    out-of-time test + 150-ticket audit, AI-labelled (eval/audit_labels.csv)
             ─► business_case.py  misroute rate, like-for-like cost, workload per agent
             ─► report.py      HTML + CSVs
 ```

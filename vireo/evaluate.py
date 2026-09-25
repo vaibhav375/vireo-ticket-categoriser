@@ -4,7 +4,7 @@
    against the reference labels (agent notes). For Set E: train Jan 2025 – Mar 2026, test Apr – Jun 2026. Compared with the bot's intake tag on the same tickets.
 2. Unseen phrasings (robustness.py): whole phrasings held out, clean and with live-chat noise.
    Step 1 is saturated on this templated data; this is the better guide to live messages.
-3. Hand audit: a random sample of tickets judged by reading both the message and the
+3. Audit: a random sample of tickets judged by reading both the message and the
    note (eval/audit_labels.csv). This checks the reference labels themselves, which
    steps 1 and 2 take on trust.
 """
@@ -43,7 +43,7 @@ def out_of_time(t):
 
 
 def audit_sample(t, n=150, seed=7, path="eval/audit_sample.csv"):
-    """Draw the random sample to hand-label. Run once; the labels live in AUDIT_FILE."""
+    """Draw the random sample to label. Run once; the labels live in AUDIT_FILE."""
     s = t.sample(n, random_state=seed)[["ticket_id", "customer_message", "agent_notes"]]
     s.to_csv(path, index=False)
     return s
@@ -105,7 +105,7 @@ def write_report(t, path="out/evaluation.md"):
               f"**{r['confident_accuracy']:.1%}** on the rest", "",
               "Model choice was made on this test; see experiments/model_search.py and docs/MODEL_IMPROVEMENT.md.", ""]
     a = audit(t)
-    lines += ["## 3. Hand audit of a random sample", ""]
+    lines += ["## 3. Audit of a random sample (labelled with AI help from message + note; not yet human-checked)", ""]
     if a is None:
         lines += ["Not run: eval/audit_labels.csv missing."]
     elif a[0]["audited_tickets"] == 0:
