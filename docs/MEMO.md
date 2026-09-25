@@ -52,8 +52,8 @@ The tougher test is how customers word a problem in ways the tool has never seen
 We also judged a random 150 tickets from both the message and the agent's note. The tool matched on all 150; the bot's tag on 101.
 
 Two cautions. First, your exported messages are very consistent, and live messages will be messier,
-so we'd re-check 50 tickets a month. Second, that 150-ticket check was done on our side
-with AI assistance, so a Vireo team lead should spot-check it before you decide.
+so we'd re-check 50 tickets a month. Second, that 150-ticket check was labelled with AI assistance;
+we re-checked 30 of them by hand and agreed with all 30, but a Vireo team lead should look at a few too.
 
 **One thing for Arjun, found on the way:** 139 orders received both a refund and a replacement,
 which your policy says should never happen. 73 look like genuine double payouts (the refund

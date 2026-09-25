@@ -2,7 +2,7 @@
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest              # 82 fast tests, ~50 s, synthetic data only (no client data needed)
+python -m pytest              # 84 fast tests, ~50 s, synthetic data only (no client data needed)
 python -m pytest -m slow      # 7 regression + resource tests on the real pack in data/ (~90 s)
 ```
 

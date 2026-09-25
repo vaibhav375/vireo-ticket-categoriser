@@ -92,7 +92,8 @@ def write(t, s, shares, by_route, workload, eval_res, audit_res, out="out", llm_
         for name, d in [("Bot sent it to Billing", d_bill), ("Bot sent it to Logistics", d_log)])
 
     a = audit_res[0] if audit_res else None
-    audit_line = (f"On a random audit sample of {a['audited_tickets']} tickets (labelled with AI help from message + note; not yet human-checked) the AI category was right "
+    audit_line = (f"On a random audit sample of {a['audited_tickets']} tickets (labelled with AI help from message + note; "
+                  f"{a['human_checked']} re-checked by a person, {a['human_disagreements']} disagreements) the AI category was right "
                   f"{a['ai_correct']}/{a['audited_tickets']}; the bot's tag {a['bot_tag_correct']}/{a['audited_tickets']}."
                   if a else "Audit not available.")
     llm_line = (f"<p>Local LLM review: {llm_usage['tickets_reviewed']} low-confidence tickets re-checked with "

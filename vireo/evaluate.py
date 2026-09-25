@@ -18,6 +18,7 @@ from .load import last_months, period_label
 from .taxonomy import OWNER
 
 AUDIT_FILE = Path(__file__).resolve().parent.parent / "eval" / "audit_labels.csv"  # works from any folder
+HUMAN_FILE = Path(__file__).resolve().parent.parent / "eval" / "human_check.csv"   # labels a person re-checked
 TEST_MONTHS = 3
 
 
@@ -49,10 +50,11 @@ def audit_sample(t, n=150, seed=7, path="eval/audit_sample.csv"):
     return s
 
 
-def audit(t):
-    if not AUDIT_FILE.exists():
+def audit(t, audit_file=AUDIT_FILE, human_file=HUMAN_FILE):
+    """Score against the audit labels (made with AI help), and count how many a person re-checked."""
+    if not Path(audit_file).exists():
         return None
-    a = pd.read_csv(AUDIT_FILE).merge(
+    a = pd.read_csv(audit_file).merge(
         t[["ticket_id", "category", "ref_category", "ai_category", "customer_message"]], on="ticket_id")
     n = len(a)
     res = {
@@ -63,7 +65,13 @@ def audit(t):
         "bot_tag_correct": int((a.category == a.true_category).sum()),
         "ai_owner_correct": int((a.ai_category.map(OWNER) == a.true_category.map(OWNER)).sum()),
         "bot_owner_correct": int((a.category.map(OWNER) == a.true_category.map(OWNER)).sum()),
+        "human_checked": 0, "human_disagreements": 0,
     }
+    if Path(human_file).exists():
+        h = pd.read_csv(human_file)
+        h = h[h.ticket_id.isin(a.ticket_id)]
+        res["human_checked"] = len(h)
+        res["human_disagreements"] = int((h.verdict.str.strip().str.lower() != "agree").sum())
     wrong = a[a.ai_category != a.true_category][["ticket_id", "true_category", "ai_category", "category", "customer_message", "comment"]]
     return res, wrong
 
@@ -105,7 +113,7 @@ def write_report(t, path="out/evaluation.md"):
               f"**{r['confident_accuracy']:.1%}** on the rest", "",
               "Model choice was made on this test; see experiments/model_search.py and docs/MODEL_IMPROVEMENT.md.", ""]
     a = audit(t)
-    lines += ["## 3. Audit of a random sample (labelled with AI help from message + note; not yet human-checked)", ""]
+    lines += ["## 3. Audit of a random sample (labelled with AI help from message + note)", ""]
     if a is None:
         lines += ["Not run: eval/audit_labels.csv missing."]
     elif a[0]["audited_tickets"] == 0:
@@ -118,7 +126,9 @@ def write_report(t, path="out/evaluation.md"):
                            ("bot_owner_correct", "Bot owning team")]:
             lo, hi = wilson(r[key], n)
             lines += [f"- {label}: {r[key]}/{n} = **{r[key] / n:.1%}** (95% CI {lo:.0%}–{hi:.0%})"]
-        lines += [f"- Reference label missing (note said nothing usable): {r['reference_label_missing']}/{n}", ""]
+        lines += [f"- Reference label missing (note said nothing usable): {r['reference_label_missing']}/{n}",
+                  f"- Checked by a person (eval/human_check.csv): {r['human_checked']} of {n} labels, "
+                  f"{r['human_disagreements']} disagreements", ""]
         lines += ["### Where the AI was wrong in the audit", "",
                   wrong.assign(customer_message=wrong.customer_message.str.replace("\n", " ").str[:140]).to_markdown(index=False)]
     Path(path).write_text("\n".join(lines) + "\n")

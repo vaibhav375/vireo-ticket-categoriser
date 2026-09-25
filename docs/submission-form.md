@@ -39,7 +39,8 @@ Three checks (full detail in `out/evaluation.md` after a run):
    on the rest. This is my best estimate for live messages.
 3. **Random audit of 150 tickets.** Each judged from both the message and the note. AI **150/150**
    (95% CI 97.5–100%). The note-reading rules 142/150: the 8 misses are notes like "sorted" that
-   say nothing. Bot tag **101/150 (67%)**.
+   say nothing. Bot tag **101/150 (67%)**. The labels were made with AI help, so **I re-checked a random 30 of
+   them myself against the message and note: I agreed with all 30** (`eval/human_check.csv`).
 
 **What it gets wrong:** on unseen phrasings, words that mean different things in different queues.
 "Card charged two times" pulls toward Charging & Battery, "refund not received yet" toward Delivery, and
@@ -49,8 +50,8 @@ sit between two owners (a cancellation after dispatch; a no-power fault that bec
 **Honest caveats.** The data is very templated, so the 100% will not survive contact with live
 messages. The unseen-phrasing test (about 89%, or 78% with noise) is the better guide. I tuned the note-reading rules after looking at
 test-period disagreements (they had two bugs), which flatters the out-of-time number. The audit is
-the cleaner check, but **the 150 audit labels were made by Claude, not by a human**, and need a
-human spot-check.
+the cleaner check. **The 150 audit labels were made with AI help (Claude reading message + note)**; I re-checked
+30 of them myself and agreed with all 30 (`eval/human_check.csv`). The other 120 are AI-labelled only.
 
 ### Did you change, narrow, or push back on the client's ask? *What, when, and why.*
 
@@ -68,7 +69,8 @@ Yes, from the first hour of looking at the data:
 
 ### What is wrong with what you are handing us? *Be specific: bugs, shortcuts, things you know are off.*
 
-- **The audit labels are AI-made** (Claude reading message + note), not human-verified.
+- **The audit labels were made with AI help** (Claude reading message + note). I re-checked 30 of 150 myself
+  (0 disagreements); the other 120 are not human-checked.
 - **Evaluation leakage.** The note-label rules were fixed after seeing test-period errors, so the out-of-time number is optimistic.
   The model itself was chosen on the unseen-phrasing test, and I looked at that test's errors, so 89.0% is slightly optimistic too.
   The audit was never used for any choice.
@@ -82,7 +84,7 @@ Yes, from the first hour of looking at the data:
 - **Only transfers and SLA credits are costed.** CSAT damage (2.3 vs 3.1) and slower resolution are
   reported but not priced, so the saving is understated. Agent time inside the Rs 305 transfer cost may overlap.
 - **Workload per agent uses today's roster for every month.** The roster has no end dates, so leavers and joiners aren't modelled.
-- **Tests run on macOS only** (M1, 8 GB, Python 3.12). 89 tests: 82 on synthetic data and 7 on the real pack (`docs/TESTING.md`).
+- **Tests run on macOS only** (M1, 8 GB, Python 3.12). 91 tests: 84 on synthetic data and 7 on the real pack (`docs/TESTING.md`).
   Not tested: Linux or Windows, browser rendering of the report beyond its content, and real live tickets.
 - **The report loads Plotly from a CDN**, so it needs internet to render. Light mode only.
 - **Resolution-time medians exclude open and pending tickets** (no resolved_at).
@@ -164,7 +166,8 @@ UTC timestamp issue and the out-of-window Billing tickets; writing and fixing th
    650/week, the 5% target, Rs 9 lakh for two hires. Cost rates are in `vireo/load.py`, taken from policy §3–4.
 2. **The ground truth is the agents' closing notes, read by rules in `vireo/labels.py`.** If Vireo
    changes how agents write notes, re-check label coverage and `out/evaluation.md` first. The 150
-   audit labels in `eval/audit_labels.csv` are AI-made. Get a Vireo team lead to check 30 of them before anyone quotes the accuracy.
+   audit labels in `eval/audit_labels.csv` were made with AI help; I re-checked 30 (all agreed, `eval/human_check.csv`).
+   Before anyone quotes the accuracy to the client, have a Vireo team lead check a few more.
 3. **Two open client actions:** (a) Sameer: can the bot add "Has your order arrived?" or call the
    classifier at intake? That is the change the Rs 1.5 lakh depends on. (b) Arjun: the refund-plus-replacement
    orders. Every run writes the list to `out/refund_and_replacement.csv`, with a `likely_double_payout` flag.

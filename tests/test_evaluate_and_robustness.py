@@ -55,3 +55,27 @@ def test_unseen_phrasing_score_is_averaged_over_several_splits_and_reports_its_r
     assert r["repeats"] == 3
     assert r["unseen_min"] <= r["unseen"] <= r["unseen_max"]
     assert r["noisy_min"] <= r["noisy"] <= r["noisy_max"]
+
+
+def test_audit_reports_how_many_labels_a_person_checked_and_disagreed_with(tmp_path):
+    from vireo.evaluate import audit
+    t = pd.DataFrame({"ticket_id": ["T1", "T2", "T3"], "category": ["Billing & Payments"] * 3,
+                      "ref_category": ["Delivery & Shipping"] * 3, "ai_category": ["Delivery & Shipping"] * 3,
+                      "customer_message": ["m1", "m2", "m3"]})
+    labels = tmp_path / "labels.csv"
+    pd.DataFrame({"ticket_id": ["T1", "T2", "T3"], "true_category": ["Delivery & Shipping"] * 3,
+                  "comment": ""}).to_csv(labels, index=False)
+    human = tmp_path / "human.csv"
+    pd.DataFrame({"ticket_id": ["T1", "T2"], "verdict": ["agree", "disagree"]}).to_csv(human, index=False)
+    res, _ = audit(t, audit_file=labels, human_file=human)
+    assert res["human_checked"] == 2 and res["human_disagreements"] == 1
+
+
+def test_audit_without_a_human_check_file_reports_none_checked(tmp_path):
+    from vireo.evaluate import audit
+    t = pd.DataFrame({"ticket_id": ["T1"], "category": ["Other"], "ref_category": ["Other"],
+                      "ai_category": ["Other"], "customer_message": ["m"]})
+    labels = tmp_path / "labels.csv"
+    pd.DataFrame({"ticket_id": ["T1"], "true_category": ["Other"], "comment": ""}).to_csv(labels, index=False)
+    res, _ = audit(t, audit_file=labels, human_file=tmp_path / "missing.csv")
+    assert res["human_checked"] == 0
