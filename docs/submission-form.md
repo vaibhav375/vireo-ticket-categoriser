@@ -171,7 +171,7 @@ UTC timestamp issue and the out-of-window Billing tickets; writing and fixing th
 
 ### Honest hours spent. *One number.*
 
-[FILL IN]
+About 3 hours of active work (the commits span a longer evening with breaks); the video is not included.
 
 ### Github Repo Link
 
