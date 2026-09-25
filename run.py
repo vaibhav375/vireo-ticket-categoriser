@@ -64,7 +64,11 @@ def _run(a):
     eval_res, audit_res = evaluate.write_report(t, f"{a.out}/evaluation.md")
     s, shares, by_route, workload, t = business_case.summary(t, load_raw(a.data)[1])
     path = report.write(t, s, shares, by_route, workload, eval_res, audit_res, a.out, usage)
-    rr = business_case.refund_and_replacement(t, pd.read_csv(_find(Path(a.data), "products.csv")))
+    try:
+        orders = pd.read_csv(_find(Path(a.data), "orders.csv"))
+    except FileNotFoundError:  # optional: without it, only order IDs quoted on tickets are used
+        orders = None
+    rr = business_case.refund_and_replacement(t, pd.read_csv(_find(Path(a.data), "products.csv")), orders)
     rr.to_csv(f"{a.out}/refund_and_replacement.csv")
 
     print(f"\nBilling share:   {s['billing_share_bot']:.1%} by bot tag -> {s['billing_share_real']:.1%} real")

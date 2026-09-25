@@ -67,7 +67,7 @@ def test_evaluation_numbers_are_unchanged(run_output):
 
 def test_refund_and_replacement_list_is_unchanged(run_output):
     rr = pd.read_csv(run_output["out"] / "refund_and_replacement.csv")
-    assert len(rr) == 74 and rr.likely_double_payout.sum() == 42
+    assert len(rr) == 139 and rr.likely_double_payout.sum() == 73
 
 
 def test_run_fits_an_8gb_laptop(run_output):

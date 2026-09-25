@@ -2,7 +2,7 @@
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest              # 79 fast tests, ~50 s, synthetic data only (no client data needed)
+python -m pytest              # 82 fast tests, ~50 s, synthetic data only (no client data needed)
 python -m pytest -m slow      # 7 regression + resource tests on the real pack in data/ (~90 s)
 ```
 
@@ -26,7 +26,7 @@ ignored) to confirm a test catches it.
 | End to end | `test_pipeline_e2e.py` | `run.py` as a user runs it: every output written, counts consistent (monthly tables sum to the ticket count), no "nan" in the report, new output folder, run from another folder, `--audit`, clean exit code 2 with a one-line message for data problems, `--start/--end` for another export |
 | Local LLM | `test_llm_safety.py` | Against a fake Ollama HTTP server: oversized model refused before loading, Ollama down, model not pulled, other models unloaded first, only uncertain tickets sent, unload afterwards, a failed call or garbage reply keeps the fast model's answer |
 | Setup | `test_setup.py` | The pipeline raises no deprecation warnings; slow tests are skipped by default even when pytest is started outside the repo |
-| Real data | `test_real_data.py` (slow) | Headline numbers unchanged (Billing 20.8%→14.0%, Logistics 16.4%→26.0%, misroute 16.8%, out-of-time 100%, unseen phrasings 89.0% with range, audit 150/150, refund list 74/42); peak memory < 1 GB; run time < 3 min; prediction < 5 ms per ticket |
+| Real data | `test_real_data.py` (slow) | Headline numbers unchanged (Billing 20.8%→14.0%, Logistics 16.4%→26.0%, misroute 16.8%, out-of-time 100%, unseen phrasings 89.0% with range, audit 150/150, refund list 139/73); peak memory < 1 GB; run time < 3 min; prediction < 5 ms per ticket |
 
 ## What testing found (all fixed)
 

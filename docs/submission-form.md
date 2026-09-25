@@ -82,10 +82,13 @@ Yes, from the first hour of looking at the data:
 - **Only transfers and SLA credits are costed.** CSAT damage (2.3 vs 3.1) and slower resolution are
   reported but not priced, so the saving is understated. Agent time inside the Rs 305 transfer cost may overlap.
 - **Workload per agent uses today's roster for every month.** The roster has no end dates, so leavers and joiners aren't modelled.
-- **Tests run on macOS only** (M1, 8 GB, Python 3.12). 86 tests: 79 on synthetic data and 7 on the real pack (`docs/TESTING.md`).
+- **Tests run on macOS only** (M1, 8 GB, Python 3.12). 89 tests: 82 on synthetic data and 7 on the real pack (`docs/TESTING.md`).
   Not tested: Linux or Windows, browser rendering of the report beyond its content, and real live tickets.
 - **The report loads Plotly from a CDN**, so it needs internet to render. Light mode only.
 - **Resolution-time medians exclude open and pending tickets** (no resolved_at).
+- **Tickets without an order number are linked by customer + product** to that customer's latest order of the
+  product before the ticket. A customer who bought the same product twice could be linked to the wrong order,
+  so the refund-plus-replacement list says "likely", not "confirmed".
 - Legacy money units and cross-system duplicates were checked and not found in Set E. The checks stay in `--audit`, but no dedupe step runs.
 
 ### What did you deliberately leave out, and why that rather than something else?
@@ -103,9 +106,11 @@ I chose these because none of them changes the headcount answer, which is the de
 
 ### Anything you built or found that nobody asked for?
 
-- **74 orders received both a refund and a replacement**, which policy §5 forbids. 42 have
+- **139 orders received both a refund and a replacement**, which policy §5 forbids. 73 have
   refund codes that suggest a genuine double payout (RETURN-QC-OK, DOA-REPL, LOST-TRANSIT, WTY-BUYBACK
-  plus a replacement). That's about Rs 1.4 lakh in replacement cost across all 74. Not verified; flagged for Finance.
+  plus a replacement): about Rs 1.4 lakh in replacement cost on top of Rs 2.5 lakh already refunded. A third of
+  tickets quote no order number, so those are matched to the customer's order of that product (the README's
+  fallback). Not verified; flagged for Finance.
 - **SLA breaches are charged to the resolving agent** (policy §3). So Logistics is blamed for late
   first replies that happened while its tickets sat in the Billing queue, which is why Neha sees Logistics "drowning".
 - **The 139 out-of-window tickets are all Billing-tagged**, which pushes Billing's share up.

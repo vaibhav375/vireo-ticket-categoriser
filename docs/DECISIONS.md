@@ -97,6 +97,12 @@ The window, out-of-time split and "recent" period were written for Set E's dates
 every row. Now `--start/--end` set the window, the out-of-time test is the data's last 3 months, and "recent" is
 its last 6 months. The Set E defaults are unchanged, and the regression tests confirm the numbers didn't move.
 
+**20. Tickets without an order number are matched to an order by customer + product.**
+A third of tickets quote no order_id. The README gives customer_id + product_sku as the fallback join, so such a
+ticket is linked to that customer's latest order of that product placed on or before the ticket (90% of these
+tickets match exactly one order). Without the fallback, the refund-plus-replacement check found 74 orders; with
+it, 139 (73 likely double payouts).
+
 **16. Repeat contacts not costed.**
 Policy §10 prices repeat contacts, but the repeat rate barely differs between misrouted and
 correctly routed tickets (4.0% vs 3.3%). Leaving it out keeps the number conservative.

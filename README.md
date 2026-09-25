@@ -22,7 +22,7 @@ pip install -r requirements.txt
 Copy the data pack into `data/`. The files can keep their original `<uuid>-tickets.csv` names:
 
 ```
-data/tickets.csv  data/agents.csv  data/products.csv  (orders, customers not needed)
+data/tickets.csv  data/agents.csv  data/products.csv  data/orders.csv  (orders.csv optional; customers.csv not needed)
 ```
 
 ```bash
@@ -67,7 +67,7 @@ dispatch status). The bot files these under "Other".
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest            # 79 fast tests on synthetic data (~50 s), from any folder
+python -m pytest            # 82 fast tests on synthetic data (~50 s), from any folder
 python -m pytest -m slow    # 7 regression + resource tests on the real pack (~90 s)
 ```
 

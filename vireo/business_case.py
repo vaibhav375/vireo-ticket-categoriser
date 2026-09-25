@@ -132,15 +132,42 @@ def summary(t, agents):
 FULL_REFUND_CODES = {"RETURN-QC-OK", "DOA-REPL", "LOST-TRANSIT", "WTY-BUYBACK"}
 
 
-def refund_and_replacement(t, products):
-    """Orders that got both a refund and a replacement across their tickets. Policy §5: never both."""
-    x = t[t.order_id.notna()]
-    g = x.groupby("order_id").agg(
+def refund_and_replacement(t, products, orders=None):
+    """Orders that got both a refund and a replacement across their tickets. Policy §5: never both.
+
+    A third of tickets carry no order_id (the customer didn't quote it). The README's fallback is
+    customer_id + product_sku: such a ticket is matched to that customer's latest order of that
+    product placed on or before the ticket date. If no order matches, its tickets are still grouped
+    by customer + product. Without an orders file, only quoted order IDs are used.
+    """
+    t = t.copy()
+    t["order_key"] = t.order_id
+    t["matched_by"] = t.order_id.notna().map({True: "order_id", False: None})
+    if orders is not None:
+        miss = t.order_id.isna()
+        if miss.any():
+            o = orders[["order_id", "customer_id", "sku", "order_date"]].rename(
+                columns={"order_id": "o_id", "sku": "product_sku"})
+            o["order_date"] = pd.to_datetime(o.order_date)
+            m = t.loc[miss, ["ticket_id", "customer_id", "product_sku", "created_at"]].merge(
+                o, on=["customer_id", "product_sku"])
+            m = m[m.order_date <= m.created_at].sort_values("order_date").groupby("ticket_id").tail(1)
+            found = t.ticket_id.map(m.set_index("ticket_id").o_id)
+            hit = miss & found.notna()
+            t.loc[hit, "order_key"] = found[hit]
+            t.loc[hit, "matched_by"] = "customer+product"
+            rest = miss & ~hit
+            t.loc[rest, "order_key"] = "no order found: " + t.loc[rest, "customer_id"] + " / " + t.loc[rest, "product_sku"]
+            t.loc[rest, "matched_by"] = "customer+product, no order"
+    x = t[t.order_key.notna()]
+    g = x.groupby("order_key").agg(
         tickets=("ticket_id", lambda s: " ".join(s)), sku=("product_sku", "first"),
         refund_inr=("refund_amount_inr", "sum"),
         refund_codes=("refund_reason_code", lambda s: ",".join(sorted(set(s.dropna())))),
-        replaced=("replacement_issued", lambda s: (s == "Y").any()))
+        replaced=("replacement_issued", lambda s: (s == "Y").any()),
+        matched_by=("matched_by", lambda s: ",".join(sorted(set(s.dropna())))))
     g = g[(g.refund_inr > 0) & g.replaced].drop(columns="replaced")
+    g.index.name = "order_id"
     unit_cost = products.set_index("sku").unit_cost_inr
     g["replacement_cost_inr"] = g.sku.map(unit_cost) + 340  # policy §5 planning cost
     g["likely_double_payout"] = g.refund_codes.str.split(",").map(lambda c: bool(FULL_REFUND_CODES & set(c)))

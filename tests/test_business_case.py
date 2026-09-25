@@ -77,3 +77,41 @@ def test_summary_works_when_the_export_has_no_billing_tickets(pack):
     s, shares, *_ = bc.summary(t, load_raw(pack)[1])
     assert s["billing_share_real"] == pytest.approx(0.0, abs=0.02)
     assert shares.sum().round(6).tolist() == [1.0, 1.0]
+
+
+def orders(rows):
+    return pd.DataFrame([{"order_id": o, "customer_id": c, "sku": "VA-EB-PL2", "order_date": pd.Timestamp(d)}
+                         for o, c, d in rows])
+
+
+def test_ticket_without_order_id_is_matched_to_the_order_by_customer_and_product():
+    products = pd.DataFrame([{"sku": "VA-EB-PL2", "unit_cost_inr": 1480}])
+    t = tickets([
+        {"customer_id": "C1", "order_id": None, "created_at": pd.Timestamp("2025-06-10"),
+         "refund_amount_inr": 3499.0, "refund_reason_code": "RETURN-QC-OK"},
+        {"customer_id": "C1", "order_id": "O1", "created_at": pd.Timestamp("2025-06-20"), "replacement_issued": "Y"},
+    ])
+    got = bc.refund_and_replacement(t, products, orders([("O1", "C1", "2025-06-01")]))
+    assert got.index.tolist() == ["O1"]
+    assert got.at["O1", "likely_double_payout"]
+
+
+def test_the_latest_order_on_or_before_the_ticket_date_is_used():
+    products = pd.DataFrame([{"sku": "VA-EB-PL2", "unit_cost_inr": 1480}])
+    t = tickets([
+        {"customer_id": "C1", "order_id": None, "created_at": pd.Timestamp("2025-03-01"), "refund_amount_inr": 100.0},
+        {"customer_id": "C1", "order_id": None, "created_at": pd.Timestamp("2025-06-10"), "refund_amount_inr": 200.0},
+        {"customer_id": "C1", "order_id": "O2", "created_at": pd.Timestamp("2025-06-12"), "replacement_issued": "Y"},
+    ])
+    got = bc.refund_and_replacement(t, products, orders([("O1", "C1", "2025-01-01"), ("O2", "C1", "2025-06-01")]))
+    assert got.index.tolist() == ["O2"]            # the March refund belongs to O1, which had no replacement
+    assert got.at["O2", "refund_inr"] == 200.0
+
+
+def test_without_an_orders_file_only_quoted_order_ids_are_used():
+    products = pd.DataFrame([{"sku": "VA-EB-PL2", "unit_cost_inr": 1480}])
+    t = tickets([
+        {"customer_id": "C1", "order_id": None, "refund_amount_inr": 3499.0, "refund_reason_code": "RETURN-QC-OK"},
+        {"customer_id": "C1", "order_id": "O1", "replacement_issued": "Y"},
+    ])
+    assert bc.refund_and_replacement(t, products).empty
